@@ -12,7 +12,12 @@ void setup() {
    button.onClick = new PrintAction("git push");
    button.onDoubleClick = new PrintAction("git pull");
    button.onHold = new PrintAction("NICE :)))");
-   button.onLongHold = new PrintAction(String("Version: ") + VERSION + ". Source code can be found on https://github.com/RGilyazov/GitPush");
+   button.onLongHold = new PrintAction(String("Version: ") 
+    + VERSION
+    + ". Source code can be found on https://github.com/RGilyazov/ArduinoButtons/tree/" 
+    + PROJECT_NAME
+    + "/v"
+     + VERSION);
    button.setup(buttonPin);
    digitalWrite(ledPin, HIGH);
 }
