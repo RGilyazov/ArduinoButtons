@@ -2,34 +2,215 @@
 #include <Keyboard.h>
 #include "classes/Button.h"
 #include "classes/actions/PrintAction.h"
+#include "classes/actions/LEDToggleAction.h"
+#include "classes/actions/CombinedAction.h"
+#include "classes/leds/RGLed.h"
 #include "version.h"
+#include "hardware_config.h"
 
-#define buttonPin 3 // analog input pin to use as a digital input
-#define ledPin1 7   // digital output pin for the LED1 (GREEN)
-#define ledPin2 9   // digital output pin for the LED2 (RED)
+// Forward declarations
+bool initializeSystem();
+void enterErrorState();
+void handleErrorState();
+void monitorSystemHealth();
+void handleError();
+
+// Global objects (stack allocation instead of dynamic allocation)
 Button button;
+RGLed statusLED;  // Red+Green status LED
 
-void setup()
-{
-  button.onClick = new PrintAction("git push");
-  button.onDoubleClick = new PrintAction("git pull");
-  button.onHold = new PrintAction("NICE :)))");
-  button.onLongHold = new PrintAction(String("Version: ") + VERSION + ". Source code can be found on https://github.com/RGilyazov/ArduinoButtons/tree/" + PROJECT_NAME + "/v" + VERSION);
-  button.setup(buttonPin);
-  pinMode(ledPin1, OUTPUT);
-  pinMode(ledPin2, OUTPUT);
-  randomSeed(analogRead(0));
-  if (random(2) == 0)
-  {
-    digitalWrite(ledPin1, HIGH);
-  }
-  else
-  {
-    digitalWrite(ledPin2, HIGH);
-  }
+// Action instances will be created in setup() since F() can't be used at global scope
+PrintAction* gitPushAction = nullptr;
+PrintAction* gitPullAction = nullptr;
+PrintAction* holdAction = nullptr;
+AbstractAction* longHoldAction = nullptr;
+
+// System state
+bool systemInitialized = false;
+unsigned long lastErrorTime = 0;
+uint8_t consecutiveErrors = 0;
+
+// Constants
+constexpr unsigned long ERROR_RESET_INTERVAL = HardwareConfig::ERROR_RESET_INTERVAL_MS;
+constexpr uint8_t MAX_CONSECUTIVE_ERRORS = HardwareConfig::MAX_CONSECUTIVE_ERRORS;
+
+void setup() {
+    // Initialize serial for debugging (optional, remove if not needed)
+    #ifdef DEBUG
+    Serial.begin(9600);
+    Serial.println(F("Arduino Button System Starting..."));
+    #endif
+    
+    // Create action objects (F() macro can only be used inside functions)
+    static PrintAction gitPushActionObj(F("git push"));
+    static PrintAction gitPullActionObj(F("git pull"));  
+    static PrintAction holdActionObj(F("NICE :)))"));
+    
+    // Long hold combined action: print version info AND toggle LED color
+    static PrintAction versionActionObj(F("Version: 0.0.1. Source code: https://github.com/RGilyazov/ArduinoButtons/tree/for-eyal/v0.0.1"));
+    static LEDToggleAction ledToggleActionObj(&statusLED);
+    static CombinedAction longHoldActionObj;
+    
+    // Build the combined action
+    longHoldActionObj.addAction(&ledToggleActionObj);
+    longHoldActionObj.addAction(&versionActionObj);
+    
+    // Set global pointers to these objects
+    gitPushAction = &gitPushActionObj;
+    gitPullAction = &gitPullActionObj;
+    holdAction = &holdActionObj;
+    longHoldAction = &longHoldActionObj;
+    
+    // Initialize system
+    if (!initializeSystem()) {
+        #ifdef DEBUG
+        Serial.println(F("System initialization failed!"));
+        #endif
+        // Enter error state - blink both LEDs
+        enterErrorState();
+        return;
+    }
+    
+    systemInitialized = true;
+    
+    #ifdef DEBUG
+    Serial.println(F("System initialized successfully"));
+    #endif
 }
 
-void loop()
-{
-  button.loop();
+bool initializeSystem() {
+    // Initialize keyboard
+    Keyboard.begin();
+    delay(100); // Give keyboard time to initialize
+    
+    // Setup button
+    if (!button.setup(HardwareConfig::BUTTON_PIN)) {
+        return false;
+    }
+    
+    // Setup RG LED
+    statusLED.setup(HardwareConfig::RGLED_RED_PIN, HardwareConfig::RGLED_GREEN_PIN);
+    
+    // Assign actions with validation (check pointers are not null)
+    if (!gitPushAction || !gitPullAction || !holdAction || !longHoldAction) {
+        return false;
+    }
+    
+    if (!button.setOnClickAction(gitPushAction) ||
+        !button.setOnDoubleClickAction(gitPullAction) ||
+        !button.setOnHoldAction(holdAction) ||
+        !button.setOnLongHoldAction(longHoldAction)) {
+        return false;
+    }
+    
+    // Random startup LED indication - either red or green
+    randomSeed(analogRead(0));
+    if (random(2) == 0) {
+        statusLED.showGreen();  // System ready - green
+    } else {
+        statusLED.showRed();    // Alternate startup - red
+    }
+    
+    return true;
+}
+
+void loop() {
+    if (!systemInitialized) {
+        // System failed to initialize - stay in error state
+        handleErrorState();
+        return;
+    }
+    
+    // Main button processing
+    button.loop();
+    
+    // Update any running actions (non-blocking execution)
+    button.updateActions();
+    
+    // System health monitoring
+    monitorSystemHealth();
+    
+    // Small delay to prevent excessive CPU usage
+    delay(1);
+}
+
+void monitorSystemHealth() {
+    // Check if we need to reset error counter
+    if (consecutiveErrors > 0 && 
+        (millis() - lastErrorTime) > ERROR_RESET_INTERVAL) {
+        consecutiveErrors = 0;
+        #ifdef DEBUG
+        Serial.println(F("Error counter reset"));
+        #endif
+    }
+    
+    // Check for too many errors
+    if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        #ifdef DEBUG
+        Serial.println(F("Too many errors - entering safe mode"));
+        #endif
+        enterErrorState();
+    }
+}
+
+void handleError() {
+    consecutiveErrors++;
+    lastErrorTime = millis();
+    
+    #ifdef DEBUG
+    Serial.print(F("Error occurred. Count: "));
+    Serial.println(consecutiveErrors);
+    #endif
+    
+    // Flash red LED to indicate error (3 quick blinks)
+    for (int i = 0; i < 3; i++) {
+        statusLED.showRed();
+        delay(100);
+        statusLED.turnOff();
+        delay(100);
+    }
+}
+
+void enterErrorState() {
+    systemInitialized = false;
+    
+    // Show error state with red LED, turn off green
+    statusLED.showRed();
+    
+    #ifdef DEBUG
+    Serial.println(F("Entering error state"));
+    #endif
+}
+
+void handleErrorState() {
+    // Blink red LED to indicate error state
+    static unsigned long lastBlink = 0;
+    
+    if ((millis() - lastBlink) > HardwareConfig::ERROR_BLINK_INTERVAL_MS) {
+        // Toggle between red (error) and off
+        if (statusLED.isOn()) {
+            statusLED.turnOff();
+        } else {
+            statusLED.showRed();
+        }
+        lastBlink = millis();
+    }
+    
+    // Attempt to recover every configured interval
+    static unsigned long lastRecoveryAttempt = 0;
+    if ((millis() - lastRecoveryAttempt) > HardwareConfig::RECOVERY_ATTEMPT_INTERVAL_MS) {
+        #ifdef DEBUG
+        Serial.println(F("Attempting system recovery..."));
+        #endif
+        
+        if (initializeSystem()) {
+            systemInitialized = true;
+            consecutiveErrors = 0;
+            #ifdef DEBUG
+            Serial.println(F("System recovery successful"));
+            #endif
+        }
+        
+        lastRecoveryAttempt = millis();
+    }
 }
