@@ -3,7 +3,9 @@
 #include "classes/Button.h"
 #include "classes/actions/PrintAction.h"
 #include "classes/actions/LEDToggleAction.h"
+#include "classes/actions/LEDRedToGreenAction.h"
 #include "classes/actions/CombinedAction.h"
+#include "classes/action_executor/ActionExecutor.h"
 #include "classes/leds/RGLed.h"
 #include "version.h"
 #include "hardware_config.h"
@@ -14,16 +16,21 @@ void enterErrorState();
 void handleErrorState();
 void monitorSystemHealth();
 void handleError();
+void setupStartupSequence();
 
 // Global objects (stack allocation instead of dynamic allocation)
 Button button;
 RGLed statusLED;  // Red+Green status LED
+ActionExecutor actionExecutor;  // NEW - for system startup actions
 
 // Action instances will be created in setup() since F() can't be used at global scope
 PrintAction* gitPushAction = nullptr;
 PrintAction* gitPullAction = nullptr;
 PrintAction* holdAction = nullptr;
 AbstractAction* longHoldAction = nullptr;
+
+// Startup action
+LEDRedToGreenAction* startupLEDAction = nullptr;  // NEW
 
 // System state
 bool systemInitialized = false;
@@ -48,9 +55,9 @@ void setup() {
     
     // Long hold combined action: print version info AND toggle LED color
     static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) + 
-                                   ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" + 
-                                   String((__FlashStringHelper*)PROJECT_NAME) + "/v" + 
-                                   String((__FlashStringHelper*)VERSION));
+                                       ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" + 
+                                       String((__FlashStringHelper*)PROJECT_NAME) + "/v" + 
+                                       String((__FlashStringHelper*)VERSION));
     static LEDToggleAction ledToggleActionObj(&statusLED);
     static CombinedAction longHoldActionObj;
     
@@ -76,8 +83,30 @@ void setup() {
     
     systemInitialized = true;
     
+    // NEW: Setup and start startup sequence
+    setupStartupSequence();
+    
     #ifdef DEBUG
     Serial.println(F("System initialized successfully"));
+    #endif
+}
+
+void setupStartupSequence() {
+    // Create startup LED action
+    static LEDRedToGreenAction startupLEDActionObj(&statusLED);
+    startupLEDAction = &startupLEDActionObj;
+    
+    // Configure the action for 5 seconds
+    startupLEDAction->setDuration(5000);
+    
+    // Add to startup executor
+    actionExecutor.addAction(startupLEDAction);
+    
+    // FIXED: Force start the startup sequence immediately
+    actionExecutor.startAll();
+    
+    #ifdef DEBUG
+    Serial.println(F("Startup sequence configured - LED will change from red to green"));
     #endif
 }
 
@@ -106,13 +135,8 @@ bool initializeSystem() {
         return false;
     }
     
-    // Random startup LED indication - either red or green
-    randomSeed(analogRead(0));
-    if (random(2) == 0) {
-        statusLED.showGreen();  // System ready - green
-    } else {
-        statusLED.showRed();    // Alternate startup - red
-    }
+    // Start with red LED (startup sequence will change to green)
+    statusLED.showRed();
     
     return true;
 }
@@ -123,6 +147,8 @@ void loop() {
         handleErrorState();
         return;
     }
+
+    actionExecutor.update();
     
     // Main button processing
     button.loop();
