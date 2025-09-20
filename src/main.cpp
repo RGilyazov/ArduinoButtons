@@ -2,6 +2,7 @@
 #include <Keyboard.h>
 #include "classes/Button.h"
 #include "classes/actions/PrintAction.h"
+#include "classes/leds/RGLed.h"
 #include "version.h"
 #include "hardware_config.h"
 
@@ -14,6 +15,7 @@ void handleError();
 
 // Global objects (stack allocation instead of dynamic allocation)
 Button button;
+RGLed statusLED;  // Red+Green status LED
 
 // Action instances will be created in setup() since F() can't be used at global scope
 PrintAction* gitPushAction = nullptr;
@@ -71,10 +73,13 @@ bool initializeSystem() {
     Keyboard.begin();
     delay(100); // Give keyboard time to initialize
     
-    // Setup button with validation
+    // Setup button
     if (!button.setup(HardwareConfig::BUTTON_PIN)) {
         return false;
     }
+    
+    // Setup RG LED
+    statusLED.setup(HardwareConfig::RGLED_RED_PIN, HardwareConfig::RGLED_GREEN_PIN);
     
     // Assign actions with validation (check pointers are not null)
     if (!gitPushAction || !gitPullAction || !holdAction || !longHoldAction) {
@@ -88,20 +93,12 @@ bool initializeSystem() {
         return false;
     }
     
-    // Initialize LED pins
-    pinMode(HardwareConfig::LED_PIN_GREEN, OUTPUT);
-    pinMode(HardwareConfig::LED_PIN_RED, OUTPUT);
-    
-    // Turn off both LEDs initially
-    digitalWrite(HardwareConfig::LED_PIN_GREEN, LOW);
-    digitalWrite(HardwareConfig::LED_PIN_RED, LOW);
-    
-    // Random LED startup indication
+    // Random startup LED indication - either red or green
     randomSeed(analogRead(0));
     if (random(2) == 0) {
-        digitalWrite(HardwareConfig::LED_PIN_GREEN, HIGH);
+        statusLED.showGreen();  // System ready - green
     } else {
-        digitalWrite(HardwareConfig::LED_PIN_RED, HIGH);
+        statusLED.showRed();    // Alternate startup - red
     }
     
     return true;
@@ -152,11 +149,11 @@ void handleError() {
     Serial.println(consecutiveErrors);
     #endif
     
-    // Flash red LED to indicate error
+    // Flash red LED to indicate error (3 quick blinks)
     for (int i = 0; i < 3; i++) {
-        digitalWrite(HardwareConfig::LED_PIN_RED, HIGH);
+        statusLED.showRed();
         delay(100);
-        digitalWrite(HardwareConfig::LED_PIN_RED, LOW);
+        statusLED.turnOff();
         delay(100);
     }
 }
@@ -164,9 +161,8 @@ void handleError() {
 void enterErrorState() {
     systemInitialized = false;
     
-    // Turn off green LED, turn on red LED
-    digitalWrite(HardwareConfig::LED_PIN_GREEN, LOW);
-    digitalWrite(HardwareConfig::LED_PIN_RED, HIGH);
+    // Show error state with red LED, turn off green
+    statusLED.showRed();
     
     #ifdef DEBUG
     Serial.println(F("Entering error state"));
@@ -176,11 +172,14 @@ void enterErrorState() {
 void handleErrorState() {
     // Blink red LED to indicate error state
     static unsigned long lastBlink = 0;
-    static bool ledState = false;
     
     if ((millis() - lastBlink) > HardwareConfig::ERROR_BLINK_INTERVAL_MS) {
-        ledState = !ledState;
-        digitalWrite(HardwareConfig::LED_PIN_RED, ledState ? HIGH : LOW);
+        // Toggle between red (error) and off
+        if (statusLED.isOn()) {
+            statusLED.turnOff();
+        } else {
+            statusLED.showRed();
+        }
         lastBlink = millis();
     }
     
