@@ -50,7 +50,7 @@ private:
     uint8_t typingDelayMs;         // Delay between characters in milliseconds
     
     // Constants
-    static constexpr uint8_t DEFAULT_TYPING_DELAY = 10;
+    static constexpr uint8_t DEFAULT_TYPING_DELAY = 20;
     static constexpr uint8_t MAX_TYPING_DELAY = 100;
     static constexpr size_t MAX_MESSAGE_LENGTH = 200;
     
