@@ -47,7 +47,10 @@ void setup() {
     static PrintAction holdActionObj(F("NICE :)))"));
     
     // Long hold combined action: print version info AND toggle LED color
-    static PrintAction versionActionObj(F("Version: 0.0.1. Source code: https://github.com/RGilyazov/ArduinoButtons/tree/for-eyal/v0.0.1"));
+    static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) + 
+                                   ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" + 
+                                   String((__FlashStringHelper*)PROJECT_NAME) + "/v" + 
+                                   String((__FlashStringHelper*)VERSION));
     static LEDToggleAction ledToggleActionObj(&statusLED);
     static CombinedAction longHoldActionObj;
     
