@@ -2,9 +2,9 @@
 #include <Keyboard.h>
 #include "classes/Button.h"
 #include "classes/actions/PrintAction.h"
-#include "classes/actions/LEDToggleAction.h"
 #include "classes/actions/LEDRedToGreenAction.h"
 #include "classes/actions/CombinedAction.h"
+#include "classes/actions/LEDColorActions.h"  
 #include "classes/action_executor/ActionExecutor.h"
 #include "classes/leds/RGLed.h"
 #include "version.h"
@@ -28,6 +28,8 @@ PrintAction* gitPushAction = nullptr;
 PrintAction* gitPullAction = nullptr;
 PrintAction* holdAction = nullptr;
 AbstractAction* longHoldAction = nullptr;
+LEDRedAction* ledRedAction = nullptr;     // When button pushed
+LEDGreenAction* ledGreenAction = nullptr; // When button popped (released)
 
 // Startup action
 LEDRedToGreenAction* startupLEDAction = nullptr;  // NEW
@@ -58,11 +60,15 @@ void setup() {
                                        ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" + 
                                        String((__FlashStringHelper*)PROJECT_NAME) + "/v" + 
                                        String((__FlashStringHelper*)VERSION));
-    static LEDToggleAction ledToggleActionObj(&statusLED);
+    static LEDYellowAction LEDYellowActionObj(&statusLED);
     static CombinedAction longHoldActionObj;
+
+    //Create LED color actions for push/pop
+    static LEDRedAction ledRedActionObj(&statusLED);      // Red when pushed
+    static LEDGreenAction ledGreenActionObj(&statusLED);  // Green when released
     
     // Build the combined action
-    longHoldActionObj.addAction(&ledToggleActionObj);
+    longHoldActionObj.addAction(&LEDYellowActionObj);
     longHoldActionObj.addAction(&versionActionObj);
     
     // Set global pointers to these objects
@@ -70,6 +76,8 @@ void setup() {
     gitPullAction = &gitPullActionObj;
     holdAction = &holdActionObj;
     longHoldAction = &longHoldActionObj;
+    ledRedAction = &ledRedActionObj;
+    ledGreenAction = &ledGreenActionObj;
     
     // Initialize system
     if (!initializeSystem()) {
@@ -131,7 +139,13 @@ bool initializeSystem() {
     if (!button.setOnClickAction(gitPushAction) ||
         !button.setOnDoubleClickAction(gitPullAction) ||
         !button.setOnHoldAction(holdAction) ||
-        !button.setOnLongHoldAction(longHoldAction)) {
+        !button.setOnLongHoldAction(longHoldAction) ||
+        !ledRedAction || !ledGreenAction) {
+        return false;
+    }
+
+    if (!button.setOnPushAction(ledRedAction) ||      // Button pressed = Red LED
+        !button.setOnPopAction(ledGreenAction)) {     // Button released = Green LED
         return false;
     }
     

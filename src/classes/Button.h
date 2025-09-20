@@ -18,12 +18,16 @@ public:
     bool setOnDoubleClickAction(AbstractAction* action);
     bool setOnHoldAction(AbstractAction* action);
     bool setOnLongHoldAction(AbstractAction* action);
+    bool setOnPushAction(AbstractAction* action);      // NEW: When button pressed down
+    bool setOnPopAction(AbstractAction* action);       // NEW: When button released
     
     // Getters for current actions
     AbstractAction* getOnClickAction() const { return onClick; }
     AbstractAction* getOnDoubleClickAction() const { return onDoubleClick; }
     AbstractAction* getOnHoldAction() const { return onHold; }
     AbstractAction* getOnLongHoldAction() const { return onLongHold; }
+    AbstractAction* getOnPushAction() const { return onPush; }      // NEW
+    AbstractAction* getOnPopAction() const { return onPop; }        // NEW
     
     // Action execution control (new non-blocking interface)
     void updateActions();                           // Update all running actions
@@ -61,6 +65,8 @@ private:
     AbstractAction* onDoubleClick;
     AbstractAction* onHold;
     AbstractAction* onLongHold;
+    AbstractAction* onPush;        // NEW: Action when button pressed down
+    AbstractAction* onPop;         // NEW: Action when button released
     
     // Hardware
     uint8_t buttonPin;
@@ -84,10 +90,11 @@ private:
     volatile bool waitForUp;
     volatile bool holdEventPast;
     volatile bool longHoldEventPast;
+    volatile bool previousButtonState;  // NEW: Track previous state for push/pop detection
     
     // Monitoring
     unsigned long lastEventTime;
-    uint8_t lastEventType; // 0=none, 1=click, 2=double, 3=hold, 4=longhold
+    uint8_t lastEventType; // 0=none, 1=click, 2=double, 3=hold, 4=longhold, 5=push, 6=pop
     
     // Event codes
     enum EventType : uint8_t {
@@ -95,7 +102,9 @@ private:
         SINGLE_CLICK = 1,
         DOUBLE_CLICK = 2,
         HOLD_EVENT = 3,
-        LONG_HOLD_EVENT = 4
+        LONG_HOLD_EVENT = 4,
+        PUSH_EVENT = 5,
+        POP_EVENT = 6
     };
     
     // Private methods
@@ -113,6 +122,8 @@ private:
     void doubleClickEvent();
     void holdEvent();
     void longHoldEvent();
+    void pushEvent();
+    void popEvent();
 };
 
 #endif
