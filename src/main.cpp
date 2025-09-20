@@ -2,6 +2,8 @@
 #include <Keyboard.h>
 #include "classes/Button.h"
 #include "classes/actions/PrintAction.h"
+#include "classes/actions/LEDToggleAction.h"
+#include "classes/actions/CombinedAction.h"
 #include "classes/leds/RGLed.h"
 #include "version.h"
 #include "hardware_config.h"
@@ -21,7 +23,7 @@ RGLed statusLED;  // Red+Green status LED
 PrintAction* gitPushAction = nullptr;
 PrintAction* gitPullAction = nullptr;
 PrintAction* holdAction = nullptr;
-PrintAction* longHoldAction = nullptr;
+AbstractAction* longHoldAction = nullptr;
 
 // System state
 bool systemInitialized = false;
@@ -43,7 +45,15 @@ void setup() {
     static PrintAction gitPushActionObj(F("git push"));
     static PrintAction gitPullActionObj(F("git pull"));  
     static PrintAction holdActionObj(F("NICE :)))"));
-    static PrintAction longHoldActionObj(F("Version: 0.0.1. Source code: https://github.com/RGilyazov/ArduinoButtons/tree/for-eyal/v0.0.1"));
+    
+    // Long hold combined action: print version info AND toggle LED color
+    static PrintAction versionActionObj(F("Version: 0.0.1. Source code: https://github.com/RGilyazov/ArduinoButtons/tree/for-eyal/v0.0.1"));
+    static LEDToggleAction ledToggleActionObj(&statusLED);
+    static CombinedAction longHoldActionObj;
+    
+    // Build the combined action
+    longHoldActionObj.addAction(&ledToggleActionObj);
+    longHoldActionObj.addAction(&versionActionObj);
     
     // Set global pointers to these objects
     gitPushAction = &gitPushActionObj;
