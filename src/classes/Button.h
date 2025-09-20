@@ -13,7 +13,7 @@ public:
     bool setup(uint8_t buttonPin);
     void loop();
     
-    // Action assignments (now using stack allocation)
+    // Action assignments
     bool setOnClickAction(AbstractAction* action);
     bool setOnDoubleClickAction(AbstractAction* action);
     bool setOnHoldAction(AbstractAction* action);
@@ -24,6 +24,12 @@ public:
     AbstractAction* getOnDoubleClickAction() const { return onDoubleClick; }
     AbstractAction* getOnHoldAction() const { return onHold; }
     AbstractAction* getOnLongHoldAction() const { return onLongHold; }
+    
+    // Action execution control (new non-blocking interface)
+    void updateActions();                           // Update all running actions
+    bool hasRunningAction() const;                  // Check if any action is running
+    AbstractAction* getCurrentRunningAction() const; // Get currently running action
+    void stopAllActions();                          // Force stop all running actions
     
     // Configuration
     void setTimingParameters(unsigned long debounce, unsigned long dcGap, 

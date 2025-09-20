@@ -156,12 +156,16 @@ bool Button::hasTimedOut(unsigned long startTime, unsigned long timeout) const {
 
 void Button::executeAction(AbstractAction* action, uint8_t eventType) {
     if (action && action->isValid()) {
-        ActionResult result = action->execute();
-        if (result == ActionResult::SUCCESS) {
+        // Stop any currently running action before starting a new one
+        stopAllActions();
+        
+        // Start the new action
+        action->start();
+        
+        if (action->isRunning()) {
             lastEventTime = millis();
             lastEventType = eventType;
         }
-        // Could add error logging here based on result
     }
 }
 
@@ -179,6 +183,52 @@ void Button::holdEvent() {
 
 void Button::longHoldEvent() {
     executeAction(onLongHold, LONG_HOLD_EVENT);
+}
+
+void Button::updateActions() {
+    // Update all actions that might be running
+    if (onClick && onClick->isRunning()) {
+        onClick->update();
+    }
+    if (onDoubleClick && onDoubleClick->isRunning()) {
+        onDoubleClick->update();
+    }
+    if (onHold && onHold->isRunning()) {
+        onHold->update();
+    }
+    if (onLongHold && onLongHold->isRunning()) {
+        onLongHold->update();
+    }
+}
+
+bool Button::hasRunningAction() const {
+    return (onClick && onClick->isRunning()) ||
+           (onDoubleClick && onDoubleClick->isRunning()) ||
+           (onHold && onHold->isRunning()) ||
+           (onLongHold && onLongHold->isRunning());
+}
+
+AbstractAction* Button::getCurrentRunningAction() const {
+    if (onClick && onClick->isRunning()) return onClick;
+    if (onDoubleClick && onDoubleClick->isRunning()) return onDoubleClick;
+    if (onHold && onHold->isRunning()) return onHold;
+    if (onLongHold && onLongHold->isRunning()) return onLongHold;
+    return nullptr;
+}
+
+void Button::stopAllActions() {
+    if (onClick && onClick->isRunning()) {
+        onClick->stop();
+    }
+    if (onDoubleClick && onDoubleClick->isRunning()) {
+        onDoubleClick->stop();
+    }
+    if (onHold && onHold->isRunning()) {
+        onHold->stop();
+    }
+    if (onLongHold && onLongHold->isRunning()) {
+        onLongHold->stop();
+    }
 }
 
 uint8_t Button::checkButton() {    

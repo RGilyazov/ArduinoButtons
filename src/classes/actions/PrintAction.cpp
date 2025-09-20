@@ -3,14 +3,15 @@
 #include <Keyboard.h>
 
 PrintAction::PrintAction(const String& message) 
-    : message(message), typingDelayMs(DEFAULT_TYPING_DELAY), 
-      isFlashString(false), flashMessage(nullptr) {
-    // Constructor validation is handled in isValid()
+    : message(message), isFlashString(false), flashMessage(nullptr),
+      currentState(ActionState::NOT_STARTED), currentPosition(0), 
+      lastCharTime(0), typingDelayMs(DEFAULT_TYPING_DELAY) {
 }
 
 PrintAction::PrintAction(const __FlashStringHelper* message) 
-    : typingDelayMs(DEFAULT_TYPING_DELAY), isFlashString(true), flashMessage(message) {
-    // Flash string constructor - message stored in flash memory
+    : isFlashString(true), flashMessage(message),
+      currentState(ActionState::NOT_STARTED), currentPosition(0),
+      lastCharTime(0), typingDelayMs(DEFAULT_TYPING_DELAY) {
 }
 
 bool PrintAction::isValid() const {
@@ -26,89 +27,125 @@ bool PrintAction::validateMessage(const String& msg) const {
 }
 
 bool PrintAction::isKeyboardReady() const {
-    // Check if keyboard is properly initialized
-    // This is a basic check - in practice, you might want more sophisticated detection
-    return true; // Arduino Keyboard library doesn't provide a direct way to check this
+    // Basic check - Arduino Keyboard library doesn't provide direct status
+    return true;
 }
 
-ActionResult PrintAction::execute() {
-    // Pre-execution validation
-    if (!isValid()) {
-        return ActionResult::FAILED_INVALID_STATE;
+void PrintAction::start() {
+    if (!isValid() || !isKeyboardReady()) {
+        currentState = ActionState::FAILED;
+        return;
     }
     
-    if (!isKeyboardReady()) {
-        return ActionResult::FAILED_HARDWARE_ERROR;
+    initializeState();
+    currentState = ActionState::IN_PROGRESS;
+}
+
+ActionState PrintAction::update() {
+    if (currentState != ActionState::IN_PROGRESS) {
+        return currentState;
     }
     
-    // Execute the appropriate typing method
-    ActionResult result;
-    if (isFlashString) {
-        result = typeFlashString(flashMessage);
+    // Check if enough time has passed for next character
+    unsigned long currentTime = millis();
+    if (currentTime - lastCharTime < typingDelayMs) {
+        return currentState; // Still waiting for delay
+    }
+    
+    // Type the next character
+    if (hasMoreCharacters()) {
+        typeCurrentCharacter();
+        currentPosition++;
+        lastCharTime = currentTime;
     } else {
-        result = typeString(message);
+        // All characters typed, send return
+        sendReturn();
+        currentState = ActionState::COMPLETED;
     }
     
-    return result;
+    return currentState;
 }
 
-ActionResult PrintAction::typeString(const String& str) {
-    // Validate string length again before processing
-    if (str.length() == 0 || str.length() > MAX_MESSAGE_LENGTH) {
-        return ActionResult::FAILED_INVALID_STATE;
-    }
-    
-    // Type each character with error checking
-    for (size_t i = 0; i < str.length(); i++) {
-        char character = str.charAt(i);
-        
-        // Basic character validation
-        if (character == 0) {
-            return ActionResult::FAILED_INVALID_STATE;
-        }
-        
-        Keyboard.write(character);
-        
-        // Non-blocking delay with early exit capability
-        if (typingDelayMs > 0) {
-            delay(typingDelayMs);
-        }
-    }
-    
-    // Send return key
-    Keyboard.write(KEY_RETURN);
-    
-    return ActionResult::SUCCESS;
+void PrintAction::reset() {
+    currentState = ActionState::NOT_STARTED;
+    initializeState();
 }
 
-ActionResult PrintAction::typeFlashString(const __FlashStringHelper* str) {
-    if (str == nullptr) {
-        return ActionResult::FAILED_INVALID_STATE;
-    }
-    
-    // Read from flash memory and type
-    const char* flashPtr = reinterpret_cast<const char*>(str);
-    size_t charCount = 0;
-    char character;
-    
-    // Read character by character from flash
-    while ((character = pgm_read_byte(flashPtr + charCount)) != '\0') {
-        // Prevent infinite loops with max length check
-        if (charCount >= MAX_MESSAGE_LENGTH) {
-            return ActionResult::FAILED_INVALID_STATE;
-        }
+void PrintAction::stop() {
+    currentState = ActionState::FAILED;
+}
+
+bool PrintAction::isRunning() const {
+    return currentState == ActionState::IN_PROGRESS;
+}
+
+bool PrintAction::isComplete() const {
+    return currentState == ActionState::COMPLETED;
+}
+
+bool PrintAction::hasFailed() const {
+    return currentState == ActionState::FAILED;
+}
+
+ActionState PrintAction::getState() const {
+    return currentState;
+}
+
+size_t PrintAction::getTotalLength() const {
+    if (isFlashString) {
+        if (flashMessage == nullptr) return 0;
         
+        // Count characters in flash string
+        const char* flashPtr = reinterpret_cast<const char*>(flashMessage);
+        size_t len = 0;
+        while (pgm_read_byte(flashPtr + len) != '\0' && len < MAX_MESSAGE_LENGTH) {
+            len++;
+        }
+        return len;
+    } else {
+        return message.length();
+    }
+}
+
+uint8_t PrintAction::getProgressPercent() const {
+    size_t totalLen = getTotalLength();
+    if (totalLen == 0) return 0;
+    
+    return (uint8_t)((currentPosition * 100) / totalLen);
+}
+
+char PrintAction::getCurrentChar() const {
+    if (isFlashString) {
+        if (flashMessage == nullptr) return '\0';
+        
+        const char* flashPtr = reinterpret_cast<const char*>(flashMessage);
+        return pgm_read_byte(flashPtr + currentPosition);
+    } else {
+        if (currentPosition >= message.length()) return '\0';
+        return message.charAt(currentPosition);
+    }
+}
+
+bool PrintAction::hasMoreCharacters() const {
+    if (isFlashString) {
+        return getCurrentChar() != '\0' && currentPosition < MAX_MESSAGE_LENGTH;
+    } else {
+        return currentPosition < message.length();
+    }
+}
+
+void PrintAction::typeCurrentCharacter() {
+    char character = getCurrentChar();
+    if (character != '\0') {
         Keyboard.write(character);
-        
-        if (typingDelayMs > 0) {
-            delay(typingDelayMs);
-        }
-        
-        charCount++;
     }
-    
-    // Send return key
+}
+
+void PrintAction::sendReturn() {
     Keyboard.write(KEY_RETURN);
-    
-    return ActionResult::SUCCESS;
+}
+
+void PrintAction::initializeState() {
+    currentPosition = 0;
+    lastCharTime = 0;
 }

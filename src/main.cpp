@@ -114,6 +114,9 @@ void loop() {
     // Main button processing
     button.loop();
     
+    // Update any running actions (non-blocking execution)
+    button.updateActions();
+    
     // System health monitoring
     monitorSystemHealth();
     
