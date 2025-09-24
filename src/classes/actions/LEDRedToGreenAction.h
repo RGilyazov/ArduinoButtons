@@ -3,11 +3,11 @@
 
 #include <Arduino.h>
 #include "ProgressiveAction.h"
-#include "../leds/RGLed.h"
+#include "../leds/ILed.h"
 
 class LEDRedToGreenAction : public ProgressiveAction {
 public:
-    explicit LEDRedToGreenAction(RGLed* led);
+    explicit LEDRedToGreenAction(ILed* led);
     
     bool isValid() const override;
     
@@ -27,7 +27,7 @@ protected:
     bool stepProgress() override;
 
 private:
-    RGLed* led;
+    ILed* led;
     unsigned long startTime;
     unsigned long actionDurationMs;
     unsigned long lastFlashTime;

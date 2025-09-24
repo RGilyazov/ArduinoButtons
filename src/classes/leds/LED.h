@@ -2,14 +2,20 @@
 #define LED_H
 
 #include <Arduino.h>
+#include "ILed.h"
 
-class LED {
+class LED : public ILed {
 public:
     LED();
     ~LED() = default;
     
     // Setup
-    void setup(uint8_t pin);
+    bool setup(uint8_t pin);
+    
+    // ILed interface
+    bool setState(const LEDState& state) override;
+    LEDState getState() const override;
+    bool isSetup() const override;
     
     // Control methods
     void setIntensity(uint8_t intensity);   // Remember AND apply (0-255)
@@ -22,13 +28,13 @@ public:
     uint8_t getRememberedIntensity() const; // What it will return to on turnOn()
     bool isOn() const;                      // true if currentIntensity > 0
     uint8_t getPin() const;                 // Get the pin number
-    bool isSetup() const;                   // Check if LED was properly initialized
 
 private:
     uint8_t pin;
     uint8_t rememberedIntensity;            // Stored brightness level
     uint8_t currentIntensity;               // Actual current output state
     bool initialized;                       // Track initialization state
+    LEDState currentState;                  // Current state
     
     // Helper method to actually set the hardware
     void applyIntensity(uint8_t intensity);

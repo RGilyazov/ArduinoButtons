@@ -3,64 +3,40 @@
 
 #include <Arduino.h>
 #include "InstantAction.h"
-#include "../leds/RGLed.h"
+#include "../leds/ILed.h"
 
 class LEDToggleAction : public InstantAction {
 public:
-    explicit LEDToggleAction(RGLed* led) : led(led) {}
+    explicit LEDToggleAction(ILed* led) : led(led) {}
     
     bool isValid() const override { return led != nullptr; }
-    const char* getCurrentColorName() const;
 
 protected:
     void execute() override {
-        if (isCurrentlyRed()) {
-            led->showGreen();
-        } else if (isCurrentlyGreen()) {
-            led->showYellow();
-        } else if (isCurrentlyYellow()) {
-            led->showRed();
+        LEDState current = led->getState();
+        
+        if (current.type == LEDState::INTENT) {
+            switch (current.intent) {
+                case LEDIntent::RED:
+                    led->setState(LEDState::green());
+                    break;
+                case LEDIntent::GREEN:
+                    led->setState(LEDState::yellow());
+                    break;
+                case LEDIntent::YELLOW:
+                    led->setState(LEDState::red());
+                    break;
+                default:
+                    led->setState(LEDState::red());
+                    break;
+            }
         } else {
-            led->showRed();
+            led->setState(LEDState::red());
         }
     }
 
 private:
-    RGLed* led;
-    
-    bool isCurrentlyRed() const {
-        if (!led) return false;
-        return led->getCurrentRed() > 0 && led->getCurrentGreen() == 0;
-    }
-    
-    bool isCurrentlyGreen() const {
-        if (!led) return false;
-        return led->getCurrentGreen() > 0 && led->getCurrentRed() == 0;
-    }
-    
-    bool isCurrentlyYellow() const {
-        if (!led) return false;
-        return led->getCurrentRed() > 0 && led->getCurrentGreen() > 0;
-    }
+    ILed* led;
 };
-
-inline const char* LEDToggleAction::getCurrentColorName() const {
-    if (!led || !led->isOn()) {
-        return "Off";
-    }
-    
-    uint8_t red = led->getCurrentRed();
-    uint8_t green = led->getCurrentGreen();
-    
-    if (red > 0 && green > 0) {
-        return "Yellow";
-    } else if (red > 0) {
-        return "Red";
-    } else if (green > 0) {
-        return "Green";
-    } else {
-        return "Off";
-    }
-}
 
 #endif

@@ -1,6 +1,6 @@
 #include "LEDRedToGreenAction.h"
 
-LEDRedToGreenAction::LEDRedToGreenAction(RGLed* ledPtr)
+LEDRedToGreenAction::LEDRedToGreenAction(ILed* ledPtr)
     : led(ledPtr), startTime(0), actionDurationMs(DEFAULT_DURATION_MS),
       lastFlashTime(0), ledCurrentlyOn(false), 
       redPhasePercent(DEFAULT_RED_PHASE_PERCENT) {
@@ -129,18 +129,18 @@ bool LEDRedToGreenAction::isLEDCurrentlyOn() const {
 
 void LEDRedToGreenAction::setRedLED() {
     if (led) {
-        led->showRed();
+        led->setState(LEDState::red());
     }
 }
 
 void LEDRedToGreenAction::setGreenLED() {
     if (led) {
-        led->showGreen();
+        led->setState(LEDState::green());
     }
 }
 
 void LEDRedToGreenAction::turnOffLED() {
     if (led) {
-        led->turnOff();
+        led->setState(LEDState::off());
     }
 }

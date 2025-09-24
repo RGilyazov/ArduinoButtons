@@ -3,42 +3,42 @@
 
 #include <Arduino.h>
 #include "InstantAction.h"
-#include "../leds/RGLed.h"
+#include "../leds/ILed.h"
 
 class LEDRedAction : public InstantAction {
 public:
-    explicit LEDRedAction(RGLed* led) : led(led) {}
+    explicit LEDRedAction(ILed* led) : led(led) {}
     bool isValid() const override { return led != nullptr; }
 
 protected:
-    void execute() override { led->showRed(); }
+    void execute() override { led->setState(LEDState::red()); }
 
 private:
-    RGLed* led;
+    ILed* led;
 };
 
 class LEDYellowAction : public InstantAction {
 public:
-    explicit LEDYellowAction(RGLed* led) : led(led) {}
+    explicit LEDYellowAction(ILed* led) : led(led) {}
     bool isValid() const override { return led != nullptr; }
 
 protected:
-    void execute() override { led->showYellow(); }
+    void execute() override { led->setState(LEDState::yellow()); }
 
 private:
-    RGLed* led;
+    ILed* led;
 };
 
 class LEDGreenAction : public InstantAction {
 public:
-    explicit LEDGreenAction(RGLed* led) : led(led) {}
+    explicit LEDGreenAction(ILed* led) : led(led) {}
     bool isValid() const override { return led != nullptr; }
 
 protected:
-    void execute() override { led->showGreen(); }
+    void execute() override { led->setState(LEDState::green()); }
 
 private:
-    RGLed* led;
+    ILed* led;
 };
 
 #endif

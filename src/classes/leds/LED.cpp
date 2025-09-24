@@ -2,11 +2,10 @@
 
 LED::LED() 
     : pin(255), rememberedIntensity(255), currentIntensity(0), initialized(false) {
-    // Default remembered intensity is full brightness (255)
-    // Current intensity starts at 0 (off)
+    currentState = LEDState::off();
 }
 
-void LED::setup(uint8_t ledPin) {
+bool LED::setup(uint8_t ledPin) {
     pin = ledPin;
     pinMode(pin, OUTPUT);
     
@@ -15,6 +14,41 @@ void LED::setup(uint8_t ledPin) {
     currentIntensity = 0;
     
     initialized = true;
+    return true;
+}
+
+bool LED::setState(const LEDState& state) {
+    if (!initialized) return false;
+    
+    currentState = state;
+    
+    if (state.type == LEDState::INTENT) {
+        switch (state.intent) {
+            case LEDIntent::OFF:
+                turnOff();
+                break;
+            case LEDIntent::RED:
+            case LEDIntent::GREEN:
+            case LEDIntent::YELLOW:
+            case LEDIntent::WHITE:
+                turnOn();
+                break;
+        }
+    } else {
+        if (state.precise.count >= 1) {
+            setIntensity(state.precise.values[0]);
+        }
+    }
+    
+    return true;
+}
+
+LEDState LED::getState() const {
+    return currentState;
+}
+
+bool LED::isSetup() const {
+    return initialized;
 }
 
 void LED::setIntensity(uint8_t intensity) {
@@ -68,10 +102,6 @@ bool LED::isOn() const {
 
 uint8_t LED::getPin() const {
     return pin;
-}
-
-bool LED::isSetup() const {
-    return initialized;
 }
 
 void LED::applyIntensity(uint8_t intensity) {
