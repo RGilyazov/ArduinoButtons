@@ -21,7 +21,8 @@ void setupStartupSequence();
 // Global objects (stack allocation instead of dynamic allocation)
 Button button;
 RGLed statusLED;  // Red+Green status LED
-ActionExecutor actionExecutor;  // NEW - for system startup actions
+
+ActionExecutor executor;
 
 // Action instances will be created in setup() since F() can't be used at global scope
 PrintAction* gitPushAction = nullptr;
@@ -32,7 +33,7 @@ LEDRedAction* ledRedAction = nullptr;     // When button pushed
 LEDGreenAction* ledGreenAction = nullptr; // When button popped (released)
 
 // Startup action
-LEDRedToGreenAction* startupLEDAction = nullptr;  // NEW
+LEDRedToGreenAction* startupLEDAction = nullptr;
 
 // System state
 bool systemInitialized = false;
@@ -91,7 +92,7 @@ void setup() {
     
     systemInitialized = true;
     
-    // NEW: Setup and start startup sequence
+    // Setup and start startup sequence (using same executor as buttons)
     setupStartupSequence();
     
     #ifdef DEBUG
@@ -107,14 +108,11 @@ void setupStartupSequence() {
     // Configure the action for 5 seconds
     startupLEDAction->setDuration(5000);
     
-    // Add to startup executor
-    actionExecutor.addAction(startupLEDAction);
-    
-    // FIXED: Force start the startup sequence immediately
-    actionExecutor.startAll();
+    // Execute startup action immediately (parallel execution by default)
+    executor.executeAction(startupLEDAction);
     
     #ifdef DEBUG
-    Serial.println(F("Startup sequence configured - LED will change from red to green"));
+    Serial.println(F("Startup sequence started - LED will change from red to green"));
     #endif
 }
 
@@ -127,6 +125,16 @@ bool initializeSystem() {
     if (!button.setup(HardwareConfig::BUTTON_PIN)) {
         return false;
     }
+    
+    // Set up button with the single ActionExecutor
+    button.setActionExecutor(&executor);
+    
+    // Configure button action behavior (these are the defaults but shown for clarity)
+    button.setStopOthersOnClick(true);      // Click stops other actions
+    button.setStopOthersOnDoubleClick(true); // Double-click stops other actions  
+    button.setStopOthersOnHold(true);       // Hold stops other actions
+    button.setStopOthersOnLongHold(true);   // Long-hold stops other actions
+    // Push/Pop automatically run in parallel (never stop others)
     
     // Setup RG LED
     statusLED.setup(HardwareConfig::RGLED_RED_PIN, HardwareConfig::RGLED_GREEN_PIN);
@@ -162,13 +170,11 @@ void loop() {
         return;
     }
 
-    actionExecutor.update();
+    // Update the single ActionExecutor (handles both startup and button actions)
+    executor.update();
     
     // Main button processing
     button.loop();
-    
-    // Update any running actions (non-blocking execution)
-    button.updateActions();
     
     // System health monitoring
     monitorSystemHealth();

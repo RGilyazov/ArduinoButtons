@@ -4,6 +4,9 @@
 #include <Arduino.h>
 #include "actions/AbstractAction.h"
 
+// Forward declaration to avoid circular dependency
+class ActionExecutor;
+
 class Button {
 public:
     Button();
@@ -12,32 +15,38 @@ public:
     // Setup and main loop
     bool setup(uint8_t buttonPin);
     void loop();
+
+    void setActionExecutor(ActionExecutor* executor);
+    ActionExecutor* getActionExecutor() const { return actionExecutor; }
     
-    // Action assignments
     bool setOnClickAction(AbstractAction* action);
     bool setOnDoubleClickAction(AbstractAction* action);
     bool setOnHoldAction(AbstractAction* action);
     bool setOnLongHoldAction(AbstractAction* action);
-    bool setOnPushAction(AbstractAction* action);      // NEW: When button pressed down
-    bool setOnPopAction(AbstractAction* action);       // NEW: When button released
+    bool setOnPushAction(AbstractAction* action);      // When button pressed down
+    bool setOnPopAction(AbstractAction* action);       // When button released
     
     // Getters for current actions
     AbstractAction* getOnClickAction() const { return onClick; }
     AbstractAction* getOnDoubleClickAction() const { return onDoubleClick; }
     AbstractAction* getOnHoldAction() const { return onHold; }
     AbstractAction* getOnLongHoldAction() const { return onLongHold; }
-    AbstractAction* getOnPushAction() const { return onPush; }      // NEW
-    AbstractAction* getOnPopAction() const { return onPop; }        // NEW
-    
-    // Action execution control (new non-blocking interface)
-    void updateActions();                           // Update all running actions
-    bool hasRunningAction() const;                  // Check if any action is running
-    AbstractAction* getCurrentRunningAction() const; // Get currently running action
-    void stopAllActions();                          // Force stop all running actions
+    AbstractAction* getOnPushAction() const { return onPush; }
+    AbstractAction* getOnPopAction() const { return onPop; }
+    bool hasRunningAction() const;                      // Check if any action is running via executor
+    AbstractAction* getCurrentRunningAction() const;    // Get currently running action from executor
+    void stopAllActions();                              // Stop all actions via executor
     
     // Configuration
     void setTimingParameters(unsigned long debounce, unsigned long dcGap, 
                            unsigned long hold, unsigned long longHold);
+    
+    // NEW: Action execution behavior configuration
+    void setStopOthersOnClick(bool stopOthers) { stopOthersOnClick = stopOthers; }
+    void setStopOthersOnDoubleClick(bool stopOthers) { stopOthersOnDoubleClick = stopOthers; }
+    void setStopOthersOnHold(bool stopOthers) { stopOthersOnHold = stopOthers; }
+    void setStopOthersOnLongHold(bool stopOthers) { stopOthersOnLongHold = stopOthers; }
+    // Push/Pop never stop others by design (they're meant to run in parallel)
     
     // Status checking
     bool isInitialized() const { return initialized; }
@@ -60,13 +69,23 @@ public:
     static constexpr unsigned long MAX_LONG_HOLD_TIME_MS = 30000;
 
 private:
-    // Action pointers
+    // Action pointers (stored but execution delegated to ActionExecutor)
     AbstractAction* onClick;
     AbstractAction* onDoubleClick;
     AbstractAction* onHold;
     AbstractAction* onLongHold;
-    AbstractAction* onPush;        // NEW: Action when button pressed down
-    AbstractAction* onPop;         // NEW: Action when button released
+    AbstractAction* onPush;        
+    AbstractAction* onPop;         
+    
+    // NEW: ActionExecutor integration
+    ActionExecutor* actionExecutor;    // Delegate for action execution
+    
+    // NEW: Action execution behavior configuration
+    bool stopOthersOnClick;
+    bool stopOthersOnDoubleClick;
+    bool stopOthersOnHold;
+    bool stopOthersOnLongHold;
+    // Push/Pop are always parallel (don't stop others)
     
     // Hardware
     uint8_t buttonPin;
@@ -90,7 +109,7 @@ private:
     volatile bool waitForUp;
     volatile bool holdEventPast;
     volatile bool longHoldEventPast;
-    volatile bool previousButtonState;  // NEW: Track previous state for push/pop detection
+    volatile bool previousButtonState;  // Track previous state for push/pop detection
     
     // Monitoring
     unsigned long lastEventTime;
@@ -109,7 +128,7 @@ private:
     
     // Private methods
     uint8_t checkButton();
-    void executeAction(AbstractAction* action, uint8_t eventType);
+    void executeAction(AbstractAction* action, uint8_t eventType);  // Now delegates to ActionExecutor
     bool validateTimingParameters(unsigned long debounce, unsigned long dcGap,
                                  unsigned long hold, unsigned long longHold) const;
     
