@@ -2,56 +2,42 @@
 #define COMBINED_ACTION_H
 
 #include <Arduino.h>
-#include "AbstractAction.h"
+#include "BaseAction.h"
 
-class CombinedAction : public AbstractAction {
+class CombinedAction : public BaseAction {
 public:
     CombinedAction();
     ~CombinedAction() = default;
     
-    // Action management
-    bool addAction(AbstractAction* action);     // Add an action to the combination
-    void clearActions();                        // Remove all actions
-    uint8_t getActionCount() const;             // Get number of actions
-    AbstractAction* getAction(uint8_t index) const;  // Get action by index
+    bool addAction(AbstractAction* action);
+    void clearActions();
+    uint8_t getActionCount() const;
+    AbstractAction* getAction(uint8_t index) const;
     
-    // State machine interface
     void start() override;
     ActionState update() override;
-    void reset() override;
-    void stop() override;
-    
-    // State inquiry
-    bool isRunning() const override;
-    bool isComplete() const override;
-    bool hasFailed() const override;
-    ActionState getState() const override;
     bool isValid() const override;
     
-    // Progress and monitoring
-    uint8_t getCompletedActionCount() const;    // How many actions have completed
-    uint8_t getRunningActionCount() const;      // How many actions are currently running
-    uint8_t getFailedActionCount() const;       // How many actions have failed
-    uint8_t getProgressPercent() const;         // Overall progress percentage
+    uint8_t getCompletedActionCount() const;
+    uint8_t getRunningActionCount() const;
+    uint8_t getFailedActionCount() const;
+    uint8_t getProgressPercent() const;
     
-    // Configuration
     void setStopOnFirstFailure(bool stop) { stopOnFirstFailure = stop; }
     bool getStopOnFirstFailure() const { return stopOnFirstFailure; }
-    
+
 private:
-    static constexpr uint8_t MAX_ACTIONS = 8;   // Maximum actions in combination
+    static constexpr uint8_t MAX_ACTIONS = 8;
     
-    AbstractAction* actions[MAX_ACTIONS];       // Array of action pointers
-    uint8_t actionCount;                        // Number of actions added
-    ActionState currentState;                   // Current combined state
-    bool stopOnFirstFailure;                    // Whether to stop all actions on first failure
+    AbstractAction* actions[MAX_ACTIONS];
+    uint8_t actionCount;
+    bool stopOnFirstFailure;
     
-    // Helper methods
-    void updateState();                         // Calculate combined state from individual actions
-    void stopAllActions();                      // Force stop all actions
-    bool hasAnyRunningAction() const;           // Check if any action is running
-    bool hasAnyFailedAction() const;            // Check if any action failed
-    bool areAllActionsComplete() const;         // Check if all actions completed successfully
+    void updateState();
+    void stopAllActions();
+    bool hasAnyRunningAction() const;
+    bool hasAnyFailedAction() const;
+    bool areAllActionsComplete() const;
 };
 
 #endif

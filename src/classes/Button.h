@@ -4,6 +4,9 @@
 #include <Arduino.h>
 #include "actions/AbstractAction.h"
 
+// Forward declaration to avoid circular dependency
+class ActionExecutor;
+
 class Button {
 public:
     Button();
@@ -13,23 +16,30 @@ public:
     bool setup(uint8_t buttonPin);
     void loop();
     
-    // Action assignments
+    // NEW: ActionExecutor integration
+    void setActionExecutor(ActionExecutor* executor);
+    ActionExecutor* getActionExecutor() const { return actionExecutor; }
+    
+    // Action assignments (actions are stored but execution goes through ActionExecutor)
     bool setOnClickAction(AbstractAction* action);
     bool setOnDoubleClickAction(AbstractAction* action);
     bool setOnHoldAction(AbstractAction* action);
     bool setOnLongHoldAction(AbstractAction* action);
+    bool setOnPushAction(AbstractAction* action);      // When button pressed down
+    bool setOnPopAction(AbstractAction* action);       // When button released
     
     // Getters for current actions
     AbstractAction* getOnClickAction() const { return onClick; }
     AbstractAction* getOnDoubleClickAction() const { return onDoubleClick; }
     AbstractAction* getOnHoldAction() const { return onHold; }
     AbstractAction* getOnLongHoldAction() const { return onLongHold; }
+    AbstractAction* getOnPushAction() const { return onPush; }
+    AbstractAction* getOnPopAction() const { return onPop; }
     
-    // Action execution control (new non-blocking interface)
-    void updateActions();                           // Update all running actions
-    bool hasRunningAction() const;                  // Check if any action is running
-    AbstractAction* getCurrentRunningAction() const; // Get currently running action
-    void stopAllActions();                          // Force stop all running actions
+    // Action execution control - now delegated to ActionExecutor
+    bool hasRunningAction() const;                      // Check if any action is running via executor
+    AbstractAction* getCurrentRunningAction() const;    // Get currently running action from executor
+    void stopAllActions();                              // Stop all actions via executor
     
     // Configuration
     void setTimingParameters(unsigned long debounce, unsigned long dcGap, 
@@ -56,11 +66,16 @@ public:
     static constexpr unsigned long MAX_LONG_HOLD_TIME_MS = 30000;
 
 private:
-    // Action pointers
+    // Action pointers (stored but execution delegated to ActionExecutor)
     AbstractAction* onClick;
     AbstractAction* onDoubleClick;
     AbstractAction* onHold;
     AbstractAction* onLongHold;
+    AbstractAction* onPush;        
+    AbstractAction* onPop;         
+    
+    // NEW: ActionExecutor integration
+    ActionExecutor* actionExecutor;    // Delegate for action execution
     
     // Hardware
     uint8_t buttonPin;
@@ -84,10 +99,11 @@ private:
     volatile bool waitForUp;
     volatile bool holdEventPast;
     volatile bool longHoldEventPast;
+    volatile bool previousButtonState;  // Track previous state for push/pop detection
     
     // Monitoring
     unsigned long lastEventTime;
-    uint8_t lastEventType; // 0=none, 1=click, 2=double, 3=hold, 4=longhold
+    uint8_t lastEventType; // 0=none, 1=click, 2=double, 3=hold, 4=longhold, 5=push, 6=pop
     
     // Event codes
     enum EventType : uint8_t {
@@ -95,12 +111,14 @@ private:
         SINGLE_CLICK = 1,
         DOUBLE_CLICK = 2,
         HOLD_EVENT = 3,
-        LONG_HOLD_EVENT = 4
+        LONG_HOLD_EVENT = 4,
+        PUSH_EVENT = 5,
+        POP_EVENT = 6
     };
     
     // Private methods
     uint8_t checkButton();
-    void executeAction(AbstractAction* action, uint8_t eventType);
+    void executeAction(AbstractAction* action, uint8_t eventType);  // Now delegates to ActionExecutor
     bool validateTimingParameters(unsigned long debounce, unsigned long dcGap,
                                  unsigned long hold, unsigned long longHold) const;
     
@@ -113,6 +131,8 @@ private:
     void doubleClickEvent();
     void holdEvent();
     void longHoldEvent();
+    void pushEvent();
+    void popEvent();
 };
 
 #endif

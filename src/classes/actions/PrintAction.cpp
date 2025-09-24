@@ -4,14 +4,12 @@
 
 PrintAction::PrintAction(const String& message) 
     : message(message), isFlashString(false), flashMessage(nullptr),
-      currentState(ActionState::NOT_STARTED), currentPosition(0), 
-      lastCharTime(0), typingDelayMs(DEFAULT_TYPING_DELAY) {
+      currentPosition(0), lastCharTime(0), typingDelayMs(DEFAULT_TYPING_DELAY) {
 }
 
 PrintAction::PrintAction(const __FlashStringHelper* message) 
     : isFlashString(true), flashMessage(message),
-      currentState(ActionState::NOT_STARTED), currentPosition(0),
-      lastCharTime(0), typingDelayMs(DEFAULT_TYPING_DELAY) {
+      currentPosition(0), lastCharTime(0), typingDelayMs(DEFAULT_TYPING_DELAY) {
 }
 
 bool PrintAction::isValid() const {
@@ -27,75 +25,35 @@ bool PrintAction::validateMessage(const String& msg) const {
 }
 
 bool PrintAction::isKeyboardReady() const {
-    // Basic check - Arduino Keyboard library doesn't provide direct status
     return true;
 }
 
-void PrintAction::start() {
-    if (!isValid() || !isKeyboardReady()) {
-        currentState = ActionState::FAILED;
-        return;
-    }
-    
-    initializeState();
-    currentState = ActionState::IN_PROGRESS;
+void PrintAction::initializeProgress() {
+    currentPosition = 0;
+    lastCharTime = millis();
 }
 
-ActionState PrintAction::update() {
-    if (currentState != ActionState::IN_PROGRESS) {
-        return currentState;
-    }
-    
-    // Check if enough time has passed for next character
+bool PrintAction::stepProgress() {
     unsigned long currentTime = millis();
     if (currentTime - lastCharTime < typingDelayMs) {
-        return currentState; // Still waiting for delay
+        return false;
     }
     
-    // Type the next character
     if (hasMoreCharacters()) {
         typeCurrentCharacter();
         currentPosition++;
         lastCharTime = currentTime;
+        return false;
     } else {
-        // All characters typed, send return
         sendReturn();
-        currentState = ActionState::COMPLETED;
+        return true;
     }
-    
-    return currentState;
-}
-
-void PrintAction::reset() {
-    currentState = ActionState::NOT_STARTED;
-    initializeState();
-}
-
-void PrintAction::stop() {
-    currentState = ActionState::FAILED;
-}
-
-bool PrintAction::isRunning() const {
-    return currentState == ActionState::IN_PROGRESS;
-}
-
-bool PrintAction::isComplete() const {
-    return currentState == ActionState::COMPLETED;
-}
-
-bool PrintAction::hasFailed() const {
-    return currentState == ActionState::FAILED;
-}
-
-ActionState PrintAction::getState() const {
-    return currentState;
 }
 
 size_t PrintAction::getTotalLength() const {
     if (isFlashString) {
         if (flashMessage == nullptr) return 0;
         
-        // Count characters in flash string
         const char* flashPtr = reinterpret_cast<const char*>(flashMessage);
         size_t len = 0;
         while (pgm_read_byte(flashPtr + len) != '\0' && len < MAX_MESSAGE_LENGTH) {
@@ -143,9 +101,4 @@ void PrintAction::typeCurrentCharacter() {
 
 void PrintAction::sendReturn() {
     Keyboard.write(KEY_RETURN);
-}
-
-void PrintAction::initializeState() {
-    currentPosition = 0;
-    lastCharTime = 0;
 }

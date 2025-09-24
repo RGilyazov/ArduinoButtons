@@ -1,13 +1,56 @@
 #include "RGBLed.h"
 
 RGBLed::RGBLed() : initialized(false) {
+    currentState = LEDState::off();
 }
 
-void RGBLed::setup(uint8_t redPin, uint8_t greenPin, uint8_t bluePin) {
-    redLED.setup(redPin);
-    greenLED.setup(greenPin);
-    blueLED.setup(bluePin);
-    initialized = true;
+bool RGBLed::setup(uint8_t redPin, uint8_t greenPin, uint8_t bluePin) {
+    bool redOk = redLED.setup(redPin);
+    bool greenOk = greenLED.setup(greenPin);
+    bool blueOk = blueLED.setup(bluePin);
+    initialized = redOk && greenOk && blueOk;
+    return initialized;
+}
+
+bool RGBLed::setState(const LEDState& state) {
+    if (!initialized) return false;
+    
+    currentState = state;
+    
+    if (state.type == LEDState::INTENT) {
+        switch (state.intent) {
+            case LEDIntent::OFF:
+                showOff();
+                break;
+            case LEDIntent::RED:
+                showRed();
+                break;
+            case LEDIntent::GREEN:
+                showGreen();
+                break;
+            case LEDIntent::YELLOW:
+                showYellow();
+                break;
+            case LEDIntent::WHITE:
+                showWhite();
+                break;
+        }
+    } else {
+        uint8_t r = state.precise.count >= 1 ? state.precise.values[0] : 0;
+        uint8_t g = state.precise.count >= 2 ? state.precise.values[1] : 0;
+        uint8_t b = state.precise.count >= 3 ? state.precise.values[2] : 0;
+        setRGB(r, g, b);
+    }
+    
+    return true;
+}
+
+LEDState RGBLed::getState() const {
+    return currentState;
+}
+
+bool RGBLed::isSetup() const {
+    return initialized && redLED.isSetup() && greenLED.isSetup() && blueLED.isSetup();
 }
 
 void RGBLed::setRed(uint8_t intensity) {
@@ -128,10 +171,6 @@ uint8_t RGBLed::getCurrentBlue() const {
 
 bool RGBLed::isOn() const {
     return redLED.isOn() || greenLED.isOn() || blueLED.isOn();
-}
-
-bool RGBLed::isSetup() const {
-    return initialized && redLED.isSetup() && greenLED.isSetup() && blueLED.isSetup();
 }
 
 LED& RGBLed::getRed() {

@@ -1,14 +1,17 @@
 /* 
 *   BASED ON:
 *   4-Way Button By Jeff Saltzman 
-*   Enhanced with overflow handling and error checking
+*   Enhanced with ActionExecutor integration, overflow handling, and error checking
 */
 
 #include "Button.h"
+#include "action_executor/ActionExecutor.h"
 #include <Arduino.h>
 
 Button::Button() 
     : onClick(nullptr), onDoubleClick(nullptr), onHold(nullptr), onLongHold(nullptr),
+      onPush(nullptr), onPop(nullptr),
+      actionExecutor(nullptr),  // NEW: Initialize ActionExecutor pointer
       buttonPin(255), initialized(false),
       debounceTime(DEFAULT_DEBOUNCE_MS),
       doubleClickGap(DEFAULT_DOUBLE_CLICK_GAP_MS),
@@ -17,6 +20,7 @@ Button::Button()
       buttonVal(HIGH), buttonLast(HIGH), DCwaiting(false), DConUp(false),
       singleOK(true), downTime(0), upTime(0), ignoreUp(false),
       waitForUp(false), holdEventPast(false), longHoldEventPast(false),
+      previousButtonState(HIGH),
       lastEventTime(0), lastEventType(NO_EVENT) {
 }
 
@@ -26,6 +30,9 @@ Button::~Button() {
     onDoubleClick = nullptr; 
     onHold = nullptr;
     onLongHold = nullptr;
+    onPush = nullptr;
+    onPop = nullptr;
+    actionExecutor = nullptr;
 }
 
 bool Button::setup(uint8_t pin) {
@@ -38,6 +45,7 @@ bool Button::setup(uint8_t pin) {
     // Initialize state
     buttonVal = digitalRead(buttonPin);
     buttonLast = buttonVal;
+    previousButtonState = buttonVal;
     
     // Reset all timing and state variables
     DCwaiting = false;
@@ -54,6 +62,10 @@ bool Button::setup(uint8_t pin) {
     
     initialized = true;
     return true;
+}
+
+void Button::setActionExecutor(ActionExecutor* executor) {
+    actionExecutor = executor;
 }
 
 bool Button::setOnClickAction(AbstractAction* action) {
@@ -89,6 +101,24 @@ bool Button::setOnLongHoldAction(AbstractAction* action) {
         return true;
     }
     onLongHold = nullptr;
+    return false;
+}
+
+bool Button::setOnPushAction(AbstractAction* action) {
+    if (action && action->isValid()) {
+        onPush = action;
+        return true;
+    }
+    onPush = nullptr;
+    return false;
+}
+
+bool Button::setOnPopAction(AbstractAction* action) {
+    if (action && action->isValid()) {
+        onPop = action;
+        return true;
+    }
+    onPop = nullptr;
     return false;
 }
 
@@ -131,6 +161,12 @@ void Button::loop() {
         case LONG_HOLD_EVENT:
             longHoldEvent();
             break;
+        case PUSH_EVENT:
+            pushEvent();
+            break;
+        case POP_EVENT:
+            popEvent();
+            break;
         default:
             break;
     }
@@ -145,7 +181,6 @@ unsigned long Button::getElapsedTime(unsigned long startTime) const {
         return currentTime - startTime;
     } else {
         // Overflow occurred - calculate correctly
-        // Use ~0UL (all bits set) instead of ULONG_MAX for better portability
         return (~0UL - startTime) + currentTime + 1;
     }
 }
@@ -155,17 +190,15 @@ bool Button::hasTimedOut(unsigned long startTime, unsigned long timeout) const {
 }
 
 void Button::executeAction(AbstractAction* action, uint8_t eventType) {
-    if (action && action->isValid()) {
-        // Stop any currently running action before starting a new one
-        stopAllActions();
-        
-        // Start the new action
-        action->start();
-        
-        if (action->isRunning()) {
-            lastEventTime = millis();
-            lastEventType = eventType;
-        }
+    // Button is action-agnostic - simple delegation to ActionExecutor
+    if (!actionExecutor || !action || !action->isValid()) {
+        return;
+    }
+    
+    // ActionExecutor handles the action's execution behavior
+    if (actionExecutor->executeAction(action)) {
+        lastEventTime = millis();
+        lastEventType = eventType;
     }
 }
 
@@ -185,56 +218,66 @@ void Button::longHoldEvent() {
     executeAction(onLongHold, LONG_HOLD_EVENT);
 }
 
-void Button::updateActions() {
-    // Update all actions that might be running
-    if (onClick && onClick->isRunning()) {
-        onClick->update();
-    }
-    if (onDoubleClick && onDoubleClick->isRunning()) {
-        onDoubleClick->update();
-    }
-    if (onHold && onHold->isRunning()) {
-        onHold->update();
-    }
-    if (onLongHold && onLongHold->isRunning()) {
-        onLongHold->update();
-    }
+void Button::pushEvent() {
+    executeAction(onPush, PUSH_EVENT);
 }
 
+void Button::popEvent() {
+    executeAction(onPop, POP_EVENT);
+}
+
+// NEW: Delegate action state inquiry to ActionExecutor
 bool Button::hasRunningAction() const {
-    return (onClick && onClick->isRunning()) ||
-           (onDoubleClick && onDoubleClick->isRunning()) ||
-           (onHold && onHold->isRunning()) ||
-           (onLongHold && onLongHold->isRunning());
+    return actionExecutor ? actionExecutor->hasRunningActions() : false;
 }
 
 AbstractAction* Button::getCurrentRunningAction() const {
-    if (onClick && onClick->isRunning()) return onClick;
-    if (onDoubleClick && onDoubleClick->isRunning()) return onDoubleClick;
-    if (onHold && onHold->isRunning()) return onHold;
-    if (onLongHold && onLongHold->isRunning()) return onLongHold;
-    return nullptr;
+    return actionExecutor ? actionExecutor->getCurrentRunningAction() : nullptr;
 }
 
 void Button::stopAllActions() {
-    if (onClick && onClick->isRunning()) {
-        onClick->stop();
-    }
-    if (onDoubleClick && onDoubleClick->isRunning()) {
-        onDoubleClick->stop();
-    }
-    if (onHold && onHold->isRunning()) {
-        onHold->stop();
-    }
-    if (onLongHold && onLongHold->isRunning()) {
-        onLongHold->stop();
+    if (actionExecutor) {
+        actionExecutor->stopAll();
     }
 }
 
 uint8_t Button::checkButton() {    
     uint8_t event = NO_EVENT;
     buttonVal = digitalRead(buttonPin);
+    static bool stateChangeDetected = false;
     
+    // Check for push/pop state changes FIRST (before existing logic)
+    if (buttonVal != previousButtonState) {
+        // State change detected - check if it's been stable long enough (debounced)
+        static unsigned long stateChangeTime = 0;        
+        if (!stateChangeDetected) {
+            // First detection of state change
+            stateChangeTime = millis();
+            stateChangeDetected = true;
+        } else if (millis() - stateChangeTime >= debounceTime) {
+            // State change has been stable for debounce time
+            if (previousButtonState == HIGH && buttonVal == LOW) {
+                // Button was released, now pressed = PUSH event
+                event = PUSH_EVENT;
+            } else if (previousButtonState == LOW && buttonVal == HIGH) {
+                // Button was pressed, now released = POP event  
+                event = POP_EVENT;
+            }
+            
+            // Update previous state and reset detection
+            previousButtonState = buttonVal;
+            stateChangeDetected = false;
+            
+            // Return push/pop event immediately (don't process other events)
+            if (event == PUSH_EVENT || event == POP_EVENT) {
+                return event;
+            }
+        }
+        // If still in debounce period, don't process other events
+        return NO_EVENT;
+    };
+    
+    // EXISTING LOGIC CONTINUES (for click, double-click, hold, long-hold)
     // Button pressed down
     if (buttonVal == LOW && buttonLast == HIGH && hasTimedOut(upTime, debounceTime)) {
         downTime = millis();

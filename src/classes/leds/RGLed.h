@@ -3,14 +3,20 @@
 
 #include <Arduino.h>
 #include "LED.h"
+#include "ILed.h"
 
-class RGLed {
+class RGLed : public ILed {
 public:
     RGLed();
     ~RGLed() = default;
     
     // Setup
-    void setup(uint8_t redPin, uint8_t greenPin);
+    bool setup(uint8_t redPin, uint8_t greenPin);
+    
+    // ILed interface
+    bool setState(const LEDState& state) override;
+    LEDState getState() const override;
+    bool isSetup() const override;
     
     // Individual LED control
     void setRed(uint8_t intensity);                 // 0-255
@@ -32,7 +38,6 @@ public:
     uint8_t getCurrentRed() const;                  // Current red output
     uint8_t getCurrentGreen() const;                // Current green output
     bool isOn() const;                              // Any LED on?
-    bool isSetup() const;                           // Check initialization
     
     // Direct access
     LED& getRed();                                  // Direct red LED access
@@ -42,6 +47,7 @@ private:
     LED redLED;
     LED greenLED;
     bool initialized;
+    LEDState currentState;
 };
 
 #endif

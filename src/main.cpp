@@ -2,8 +2,10 @@
 #include <Keyboard.h>
 #include "classes/Button.h"
 #include "classes/actions/PrintAction.h"
-#include "classes/actions/LEDToggleAction.h"
+#include "classes/actions/LEDRedToGreenAction.h"
 #include "classes/actions/CombinedAction.h"
+#include "classes/actions/LEDColorActions.h"  
+#include "classes/action_executor/ActionExecutor.h"
 #include "classes/leds/RGLed.h"
 #include "version.h"
 #include "hardware_config.h"
@@ -14,16 +16,24 @@ void enterErrorState();
 void handleErrorState();
 void monitorSystemHealth();
 void handleError();
+void setupStartupSequence();
 
 // Global objects (stack allocation instead of dynamic allocation)
 Button button;
 RGLed statusLED;  // Red+Green status LED
 
-// Action instances will be created in setup() since F() can't be used at global scope
+// Single ActionExecutor for all actions (button + startup + system)
+ActionExecutor executor;
+
 PrintAction* gitPushAction = nullptr;
 PrintAction* gitPullAction = nullptr;
 PrintAction* holdAction = nullptr;
 AbstractAction* longHoldAction = nullptr;
+LEDRedAction* ledRedAction = nullptr;     // When button pushed
+LEDGreenAction* ledGreenAction = nullptr; // When button popped (released)
+
+// Startup action
+LEDRedToGreenAction* startupLEDAction = nullptr;
 
 // System state
 bool systemInitialized = false;
@@ -35,7 +45,7 @@ constexpr unsigned long ERROR_RESET_INTERVAL = HardwareConfig::ERROR_RESET_INTER
 constexpr uint8_t MAX_CONSECUTIVE_ERRORS = HardwareConfig::MAX_CONSECUTIVE_ERRORS;
 
 void setup() {
-    // Initialize serial for debugging (optional, remove if not needed)
+    // Initialize serial for debugging
     #ifdef DEBUG
     Serial.begin(9600);
     Serial.println(F("Arduino Button System Starting..."));
@@ -47,19 +57,28 @@ void setup() {
     static PrintAction holdActionObj(F("NICE :)))"));
     
     // Long hold combined action: print version info AND toggle LED color
-    static PrintAction versionActionObj(F("Version: 0.0.1. Source code: https://github.com/RGilyazov/ArduinoButtons/tree/for-eyal/v0.0.1"));
-    static LEDToggleAction ledToggleActionObj(&statusLED);
+    static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) + 
+                                       ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" + 
+                                       String((__FlashStringHelper*)PROJECT_NAME));
+    static LEDYellowAction LEDYellowActionObj(&statusLED);
     static CombinedAction longHoldActionObj;
+
+    //Create LED color actions for push/pop
+    static LEDRedAction ledRedActionObj(&statusLED);      // Red when pushed
+    static LEDGreenAction ledGreenActionObj(&statusLED);  // Green when released
     
-    // Build the combined action
-    longHoldActionObj.addAction(&ledToggleActionObj);
+    // Build the combined action for long-hold (version info + LED yellow)
+    longHoldActionObj.addAction(&LEDYellowActionObj);
     longHoldActionObj.addAction(&versionActionObj);
+    longHoldActionObj.setExecutionBehavior(ExecutionBehavior::IMMEDIATE_PARALLEL); // Informational, non-critical
     
     // Set global pointers to these objects
     gitPushAction = &gitPushActionObj;
     gitPullAction = &gitPullActionObj;
     holdAction = &holdActionObj;
     longHoldAction = &longHoldActionObj;
+    ledRedAction = &ledRedActionObj;
+    ledGreenAction = &ledGreenActionObj;
     
     // Initialize system
     if (!initializeSystem()) {
@@ -73,8 +92,27 @@ void setup() {
     
     systemInitialized = true;
     
+    // Setup and start startup sequence (using same executor as buttons)
+    setupStartupSequence();
+    
     #ifdef DEBUG
     Serial.println(F("System initialized successfully"));
+    #endif
+}
+
+void setupStartupSequence() {
+    // Create startup LED action
+    static LEDRedToGreenAction startupLEDActionObj(&statusLED);
+    startupLEDAction = &startupLEDActionObj;
+    
+    // Configure the action for 5 seconds
+    startupLEDAction->setDuration(5000);
+    
+    // Execute startup action - ActionExecutor handles the IMMEDIATE_PARALLEL behavior
+    executor.executeAction(startupLEDAction);
+    
+    #ifdef DEBUG
+    Serial.println(F("Startup sequence started - LED will change from red to green"));
     #endif
 }
 
@@ -88,28 +126,29 @@ bool initializeSystem() {
         return false;
     }
     
-    // Setup RG LED
-    statusLED.setup(HardwareConfig::RGLED_RED_PIN, HardwareConfig::RGLED_GREEN_PIN);
+    // Set up button with the single ActionExecutor
+    button.setActionExecutor(&executor);
     
-    // Assign actions with validation (check pointers are not null)
-    if (!gitPushAction || !gitPullAction || !holdAction || !longHoldAction) {
+    // Setup RG LED
+    if (!statusLED.setup(HardwareConfig::RGLED_RED_PIN, HardwareConfig::RGLED_GREEN_PIN)) {
         return false;
     }
     
     if (!button.setOnClickAction(gitPushAction) ||
         !button.setOnDoubleClickAction(gitPullAction) ||
         !button.setOnHoldAction(holdAction) ||
-        !button.setOnLongHoldAction(longHoldAction)) {
+        !button.setOnLongHoldAction(longHoldAction) ||
+        !ledRedAction || !ledGreenAction) {
+        return false;
+    }
+
+    if (!button.setOnPushAction(ledRedAction) ||      // Button pressed = Red LED
+        !button.setOnPopAction(ledGreenAction)) {     // Button released = Green LED
         return false;
     }
     
-    // Random startup LED indication - either red or green
-    randomSeed(analogRead(0));
-    if (random(2) == 0) {
-        statusLED.showGreen();  // System ready - green
-    } else {
-        statusLED.showRed();    // Alternate startup - red
-    }
+    // Start with red LED (startup sequence will change to green)
+    statusLED.setState(LEDState::red());
     
     return true;
 }
@@ -120,12 +159,11 @@ void loop() {
         handleErrorState();
         return;
     }
+
+    executor.update();
     
     // Main button processing
     button.loop();
-    
-    // Update any running actions (non-blocking execution)
-    button.updateActions();
     
     // System health monitoring
     monitorSystemHealth();
@@ -164,9 +202,9 @@ void handleError() {
     
     // Flash red LED to indicate error (3 quick blinks)
     for (int i = 0; i < 3; i++) {
-        statusLED.showRed();
+        statusLED.setState(LEDState::red());
         delay(100);
-        statusLED.turnOff();
+        statusLED.setState(LEDState::off());
         delay(100);
     }
 }
@@ -175,7 +213,7 @@ void enterErrorState() {
     systemInitialized = false;
     
     // Show error state with red LED, turn off green
-    statusLED.showRed();
+    statusLED.setState(LEDState::red());
     
     #ifdef DEBUG
     Serial.println(F("Entering error state"));
@@ -189,9 +227,9 @@ void handleErrorState() {
     if ((millis() - lastBlink) > HardwareConfig::ERROR_BLINK_INTERVAL_MS) {
         // Toggle between red (error) and off
         if (statusLED.isOn()) {
-            statusLED.turnOff();
+            statusLED.setState(LEDState::off());
         } else {
-            statusLED.showRed();
+            statusLED.setState(LEDState::red());
         }
         lastBlink = millis();
     }

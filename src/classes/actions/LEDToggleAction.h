@@ -2,112 +2,41 @@
 #define LED_TOGGLE_ACTION_H
 
 #include <Arduino.h>
-#include "AbstractAction.h"
-#include "../leds/RGLed.h"
+#include "InstantAction.h"
+#include "../leds/ILed.h"
 
-// Simple action that toggles RG LED through red -> green -> yellow sequence
-class LEDToggleAction : public AbstractAction {
+class LEDToggleAction : public InstantAction {
 public:
-    explicit LEDToggleAction(RGLed* led);
+    explicit LEDToggleAction(ILed* led) : led(led) {}
     
-    // State machine interface
-    void start() override;
-    ActionState update() override;
-    void reset() override;
-    void stop() override;
-    
-    // State inquiry
-    bool isRunning() const override { return currentState == ActionState::IN_PROGRESS; }
-    bool isComplete() const override { return currentState == ActionState::COMPLETED; }
-    bool hasFailed() const override { return currentState == ActionState::FAILED; }
-    ActionState getState() const override { return currentState; }
     bool isValid() const override { return led != nullptr; }
-    
-    // State inquiry
-    const char* getCurrentColorName() const;
-    
+
+protected:
+    void execute() override {
+        LEDState current = led->getState();
+        
+        if (current.type == LEDState::INTENT) {
+            switch (current.intent) {
+                case LEDIntent::RED:
+                    led->setState(LEDState::green());
+                    break;
+                case LEDIntent::GREEN:
+                    led->setState(LEDState::yellow());
+                    break;
+                case LEDIntent::YELLOW:
+                    led->setState(LEDState::red());
+                    break;
+                default:
+                    led->setState(LEDState::red());
+                    break;
+            }
+        } else {
+            led->setState(LEDState::red());
+        }
+    }
+
 private:
-    RGLed* led;
-    ActionState currentState;
-    
-    bool isCurrentlyRed() const;
-    bool isCurrentlyGreen() const;
-    bool isCurrentlyYellow() const;
+    ILed* led;
 };
-
-// Implementation
-LEDToggleAction::LEDToggleAction(RGLed* ledPtr)
-    : led(ledPtr), currentState(ActionState::NOT_STARTED) {
-}
-
-void LEDToggleAction::start() {
-    if (!isValid()) {
-        currentState = ActionState::FAILED;
-        return;
-    }
-    
-    currentState = ActionState::IN_PROGRESS;
-    
-    // Toggle logic: Red -> Green -> Yellow -> Red...
-    if (isCurrentlyRed()) {
-        led->showGreen();       // Red -> Green
-    } else if (isCurrentlyGreen()) {
-        led->showYellow();      // Green -> Yellow (red + green)
-    } else if (isCurrentlyYellow()) {
-        led->showRed();         // Yellow -> Red
-    } else {
-        // Off or unknown state - default to red
-        led->showRed();
-    }
-    
-    currentState = ActionState::COMPLETED; // Instant action
-}
-
-ActionState LEDToggleAction::update() {
-    // This is an instant action - no ongoing updates needed
-    return currentState;
-}
-
-void LEDToggleAction::reset() {
-    currentState = ActionState::NOT_STARTED;
-}
-
-void LEDToggleAction::stop() {
-    currentState = ActionState::FAILED;
-}
-
-bool LEDToggleAction::isCurrentlyRed() const {
-    if (!led) return false;
-    return led->getCurrentRed() > 0 && led->getCurrentGreen() == 0;
-}
-
-bool LEDToggleAction::isCurrentlyGreen() const {
-    if (!led) return false;
-    return led->getCurrentGreen() > 0 && led->getCurrentRed() == 0;
-}
-
-bool LEDToggleAction::isCurrentlyYellow() const {
-    if (!led) return false;
-    return led->getCurrentRed() > 0 && led->getCurrentGreen() > 0;
-}
-
-const char* LEDToggleAction::getCurrentColorName() const {
-    if (!led || !led->isOn()) {
-        return "Off";
-    }
-    
-    uint8_t red = led->getCurrentRed();
-    uint8_t green = led->getCurrentGreen();
-    
-    if (red > 0 && green > 0) {
-        return "Yellow";
-    } else if (red > 0) {
-        return "Red";
-    } else if (green > 0) {
-        return "Green";
-    } else {
-        return "Off";
-    }
-}
 
 #endif
