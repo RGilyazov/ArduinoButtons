@@ -1,9 +1,7 @@
 #include "CombinedAction.h"
 
 CombinedAction::CombinedAction() 
-    : actionCount(0), currentState(ActionState::NOT_STARTED), stopOnFirstFailure(true),
-      executionBehavior(ExecutionBehavior::IMMEDIATE_PARALLEL) {  // Default to parallel
-    // Initialize action array to null pointers
+    : actionCount(0), stopOnFirstFailure(true) {
     for (uint8_t i = 0; i < MAX_ACTIONS; i++) {
         actions[i] = nullptr;
     }
@@ -15,7 +13,7 @@ bool CombinedAction::addAction(AbstractAction* action) {
     }
     
     if (actionCount >= MAX_ACTIONS) {
-        return false; // No more space
+        return false;
     }
     
     actions[actionCount] = action;
@@ -24,7 +22,6 @@ bool CombinedAction::addAction(AbstractAction* action) {
 }
 
 void CombinedAction::clearActions() {
-    // Reset all actions to not started state
     for (uint8_t i = 0; i < actionCount; i++) {
         if (actions[i] != nullptr) {
             actions[i]->reset();
@@ -52,7 +49,6 @@ void CombinedAction::start() {
         return;
     }
     
-    // Start all actions simultaneously
     for (uint8_t i = 0; i < actionCount; i++) {
         if (actions[i] != nullptr) {
             actions[i]->start();
@@ -67,53 +63,19 @@ ActionState CombinedAction::update() {
         return currentState;
     }
     
-    // Update all actions
     for (uint8_t i = 0; i < actionCount; i++) {
         if (actions[i] != nullptr && actions[i]->isActive()) {
             actions[i]->update();
         }
     }
     
-    // Check for failure condition
     if (stopOnFirstFailure && hasAnyFailedAction()) {
         stopAllActions();
         currentState = ActionState::FAILED;
         return currentState;
     }
     
-    // Update combined state based on individual action states
     updateState();
-    return currentState;
-}
-
-void CombinedAction::reset() {
-    // Reset all actions
-    for (uint8_t i = 0; i < actionCount; i++) {
-        if (actions[i] != nullptr) {
-            actions[i]->reset();
-        }
-    }
-    currentState = ActionState::NOT_STARTED;
-}
-
-void CombinedAction::stop() {
-    stopAllActions();
-    currentState = ActionState::FAILED;
-}
-
-bool CombinedAction::isRunning() const {
-    return currentState == ActionState::IN_PROGRESS;
-}
-
-bool CombinedAction::isComplete() const {
-    return currentState == ActionState::COMPLETED;
-}
-
-bool CombinedAction::hasFailed() const {
-    return currentState == ActionState::FAILED;
-}
-
-ActionState CombinedAction::getState() const {
     return currentState;
 }
 
@@ -122,7 +84,6 @@ bool CombinedAction::isValid() const {
         return false;
     }
     
-    // Check that all actions are valid
     for (uint8_t i = 0; i < actionCount; i++) {
         if (actions[i] == nullptr || !actions[i]->isValid()) {
             return false;
@@ -173,12 +134,10 @@ void CombinedAction::updateState() {
     if (areAllActionsComplete()) {
         currentState = ActionState::COMPLETED;
     } else if (hasAnyFailedAction() && !hasAnyRunningAction()) {
-        // All actions are done, but some failed
         currentState = ActionState::FAILED;
     } else if (hasAnyRunningAction()) {
         currentState = ActionState::IN_PROGRESS;
     }
-    // If no actions are running and none completed/failed, stay in current state
 }
 
 void CombinedAction::stopAllActions() {
@@ -213,5 +172,5 @@ bool CombinedAction::areAllActionsComplete() const {
             return false;
         }
     }
-    return true; // All actions are complete (or no actions)
+    return true;
 }
