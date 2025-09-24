@@ -22,6 +22,7 @@ void setupStartupSequence();
 Button button;
 RGLed statusLED;  // Red+Green status LED
 
+// Single ActionExecutor for all actions (button + startup + system)
 ActionExecutor executor;
 
 // Action instances will be created in setup() since F() can't be used at global scope
@@ -68,9 +69,10 @@ void setup() {
     static LEDRedAction ledRedActionObj(&statusLED);      // Red when pushed
     static LEDGreenAction ledGreenActionObj(&statusLED);  // Green when released
     
-    // Build the combined action
+    // Build the combined action for long-hold (version info + LED yellow)
     longHoldActionObj.addAction(&LEDYellowActionObj);
     longHoldActionObj.addAction(&versionActionObj);
+    longHoldActionObj.setExecutionBehavior(ExecutionBehavior::IMMEDIATE_PARALLEL); // Informational, non-critical
     
     // Set global pointers to these objects
     gitPushAction = &gitPushActionObj;
@@ -108,7 +110,7 @@ void setupStartupSequence() {
     // Configure the action for 5 seconds
     startupLEDAction->setDuration(5000);
     
-    // Execute startup action immediately (parallel execution by default)
+    // Execute startup action - ActionExecutor handles the IMMEDIATE_PARALLEL behavior
     executor.executeAction(startupLEDAction);
     
     #ifdef DEBUG
@@ -129,12 +131,7 @@ bool initializeSystem() {
     // Set up button with the single ActionExecutor
     button.setActionExecutor(&executor);
     
-    // Configure button action behavior (these are the defaults but shown for clarity)
-    button.setStopOthersOnClick(true);      // Click stops other actions
-    button.setStopOthersOnDoubleClick(true); // Double-click stops other actions  
-    button.setStopOthersOnHold(true);       // Hold stops other actions
-    button.setStopOthersOnLongHold(true);   // Long-hold stops other actions
-    // Push/Pop automatically run in parallel (never stop others)
+    // Button is now completely action-agnostic - ActionExecutor handles all behavior!
     
     // Setup RG LED
     statusLED.setup(HardwareConfig::RGLED_RED_PIN, HardwareConfig::RGLED_GREEN_PIN);

@@ -11,6 +11,13 @@ enum class ActionState : uint8_t {
     FAILED = 3          // Action failed during execution
 };
 
+// Action execution behavior - how the action should be executed
+enum class ExecutionBehavior : uint8_t {
+    QUEUE,                 // Add to queue for sequential execution
+    IMMEDIATE_EXCLUSIVE,   // Execute immediately, stop others first  
+    IMMEDIATE_PARALLEL     // Execute immediately, run alongside others
+};
+
 // Non-blocking action base class
 class AbstractAction {
 public:
@@ -30,6 +37,9 @@ public:
     
     // Validation (kept from original design)
     virtual bool isValid() const = 0;            // Check if action is properly configured
+    
+    // NEW: Execution behavior - actions declare how they should be executed
+    virtual ExecutionBehavior getExecutionBehavior() const = 0;
     
     // Utility methods
     bool isIdle() const { return getState() == ActionState::NOT_STARTED; }

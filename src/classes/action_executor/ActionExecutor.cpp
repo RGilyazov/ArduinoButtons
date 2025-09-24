@@ -8,6 +8,24 @@ ActionExecutor::ActionExecutor()
     }
 }
 
+bool ActionExecutor::executeAction(AbstractAction* action) {
+    if (action == nullptr || !action->isValid()) {
+        return false;
+    }
+    
+    // ActionExecutor reads action's behavior and handles it appropriately
+    switch (action->getExecutionBehavior()) {
+        case ExecutionBehavior::QUEUE:
+            return queueAction(action);
+        case ExecutionBehavior::IMMEDIATE_EXCLUSIVE:
+            return executeAction(action, true);  // Stop others first
+        case ExecutionBehavior::IMMEDIATE_PARALLEL:
+            return executeAction(action, false); // Don't stop others
+        default:
+            return false;
+    }
+}
+
 bool ActionExecutor::executeAction(AbstractAction* action, bool stopOthers) {
     if (action == nullptr || !action->isValid()) {
         return false;

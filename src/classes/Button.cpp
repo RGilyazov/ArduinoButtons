@@ -11,9 +11,7 @@
 Button::Button() 
     : onClick(nullptr), onDoubleClick(nullptr), onHold(nullptr), onLongHold(nullptr),
       onPush(nullptr), onPop(nullptr),
-      actionExecutor(nullptr),
-      stopOthersOnClick(true), stopOthersOnDoubleClick(true), 
-      stopOthersOnHold(true), stopOthersOnLongHold(true),
+      actionExecutor(nullptr),  // NEW: Initialize ActionExecutor pointer
       buttonPin(255), initialized(false),
       debounceTime(DEFAULT_DEBOUNCE_MS),
       doubleClickGap(DEFAULT_DOUBLE_CLICK_GAP_MS),
@@ -192,37 +190,13 @@ bool Button::hasTimedOut(unsigned long startTime, unsigned long timeout) const {
 }
 
 void Button::executeAction(AbstractAction* action, uint8_t eventType) {
-    // Delegate to ActionExecutor if available, otherwise do nothing
+    // Button is action-agnostic - simple delegation to ActionExecutor
     if (!actionExecutor || !action || !action->isValid()) {
         return;
     }
     
-    // Determine whether to stop other actions based on event type
-    bool stopOthers = true;
-    switch (eventType) {
-        case SINGLE_CLICK:
-            stopOthers = stopOthersOnClick;
-            break;
-        case DOUBLE_CLICK:
-            stopOthers = stopOthersOnDoubleClick;
-            break;
-        case HOLD_EVENT:
-            stopOthers = stopOthersOnHold;
-            break;
-        case LONG_HOLD_EVENT:
-            stopOthers = stopOthersOnLongHold;
-            break;
-        case PUSH_EVENT:
-        case POP_EVENT:
-            stopOthers = false; // Push/Pop always run in parallel
-            break;
-        default:
-            stopOthers = true;
-            break;
-    }
-    
-    // Execute action via ActionExecutor
-    if (actionExecutor->executeAction(action, stopOthers)) {
+    // ActionExecutor handles the action's execution behavior
+    if (actionExecutor->executeAction(action)) {
         lastEventTime = millis();
         lastEventType = eventType;
     }

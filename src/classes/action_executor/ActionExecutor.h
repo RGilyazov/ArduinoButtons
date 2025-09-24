@@ -9,8 +9,11 @@ public:
     ActionExecutor();
     ~ActionExecutor() = default;
     
-    // Immediate execution methods
-    bool executeAction(AbstractAction* action, bool stopOthers = false);   // Execute action immediately (parallel by default)
+    // Action-agnostic execution - ActionExecutor handles behavior internally
+    bool executeAction(AbstractAction* action);           // Action declares its own execution behavior
+    
+    // Direct execution methods (for manual control when needed)
+    bool executeAction(AbstractAction* action, bool stopOthers); // Execute with explicit behavior
     
     // Queue-based methods with proper FIFO behavior
     bool queueAction(AbstractAction* action);              // Add action to queue (FIFO order)

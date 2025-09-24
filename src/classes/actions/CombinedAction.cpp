@@ -1,7 +1,8 @@
 #include "CombinedAction.h"
 
 CombinedAction::CombinedAction() 
-    : actionCount(0), currentState(ActionState::NOT_STARTED), stopOnFirstFailure(true) {
+    : actionCount(0), currentState(ActionState::NOT_STARTED), stopOnFirstFailure(true),
+      executionBehavior(ExecutionBehavior::IMMEDIATE_PARALLEL) {  // Default to parallel
     // Initialize action array to null pointers
     for (uint8_t i = 0; i < MAX_ACTIONS; i++) {
         actions[i] = nullptr;

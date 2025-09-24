@@ -22,6 +22,16 @@ public:
     bool hasFailed() const override;
     ActionState getState() const override;
     bool isValid() const override;
+
+        // State inquiry
+    const char* getCurrentColorName() const;
+        ExecutionBehavior getExecutionBehavior() const override {
+        return executionBehavior;
+    }
+    
+    void setExecutionBehavior(ExecutionBehavior behavior) {
+        executionBehavior = behavior;
+    }
     
     // Configuration
     void setTypingDelay(uint8_t delayMs) { 
@@ -62,6 +72,7 @@ private:
     void typeCurrentCharacter();
     void sendReturn();
     void initializeState();
+        ExecutionBehavior executionBehavior;   
 };
 
 #endif

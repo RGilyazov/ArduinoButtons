@@ -28,6 +28,15 @@ public:
     ActionState getState() const override;
     bool isValid() const override;
     
+    // NEW: Execution behavior - configurable for combined actions
+    ExecutionBehavior getExecutionBehavior() const override {
+        return executionBehavior;
+    }
+    
+    void setExecutionBehavior(ExecutionBehavior behavior) {
+        executionBehavior = behavior;
+    }
+    
     // Progress and monitoring
     uint8_t getCompletedActionCount() const;    // How many actions have completed
     uint8_t getRunningActionCount() const;      // How many actions are currently running
@@ -45,6 +54,7 @@ private:
     uint8_t actionCount;                        // Number of actions added
     ActionState currentState;                   // Current combined state
     bool stopOnFirstFailure;                    // Whether to stop all actions on first failure
+    ExecutionBehavior executionBehavior;        // How this combined action should execute
     
     // Helper methods
     void updateState();                         // Calculate combined state from individual actions

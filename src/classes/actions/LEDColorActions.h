@@ -31,9 +31,19 @@ public:
     ActionState getState() const override { return currentState; }
     bool isValid() const override { return led != nullptr; }
 
+        
+    // NEW: Execution behavior - configurable for combined actions
+    ExecutionBehavior getExecutionBehavior() const override {
+        return executionBehavior;
+    }
+    
+    void setExecutionBehavior(ExecutionBehavior behavior) {
+        executionBehavior = behavior;
+    }
 private:
     RGLed* led;
     ActionState currentState;
+    ExecutionBehavior executionBehavior;   
 };
 
 class LEDYellowAction : public AbstractAction {
@@ -60,10 +70,20 @@ public:
     bool hasFailed() const override { return currentState == ActionState::FAILED; }
     ActionState getState() const override { return currentState; }
     bool isValid() const override { return led != nullptr; }
+            
+    // NEW: Execution behavior - configurable for combined actions
+    ExecutionBehavior getExecutionBehavior() const override {
+        return executionBehavior;
+    }
+    
+    void setExecutionBehavior(ExecutionBehavior behavior) {
+        executionBehavior = behavior;
+    }
 
 private:
     RGLed* led;
     ActionState currentState;
+    ExecutionBehavior executionBehavior;   
 };
 
 // Simple action to set LED to green
@@ -91,10 +111,19 @@ public:
     bool hasFailed() const override { return currentState == ActionState::FAILED; }
     ActionState getState() const override { return currentState; }
     bool isValid() const override { return led != nullptr; }
+        ExecutionBehavior getExecutionBehavior() const override {
+        return executionBehavior;
+    }
+    
+    void setExecutionBehavior(ExecutionBehavior behavior) {
+        executionBehavior = behavior;
+    }
+
 
 private:
     RGLed* led;
     ActionState currentState;
+        ExecutionBehavior executionBehavior;   
 };
 
 #endif

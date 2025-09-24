@@ -37,6 +37,15 @@ public:
     uint16_t getCurrentFlashInterval() const;
     bool isLEDCurrentlyOn() const;
 
+    ExecutionBehavior getExecutionBehavior() const override {
+        return executionBehavior;
+    }
+    
+    void setExecutionBehavior(ExecutionBehavior behavior) {
+        executionBehavior = behavior;
+    }
+
+
 private:
     RGLed* led;
     ActionState currentState;
@@ -59,6 +68,7 @@ private:
     void setRedLED();
     void setGreenLED(); 
     void turnOffLED();
+    ExecutionBehavior executionBehavior;   
 };
 
 #endif

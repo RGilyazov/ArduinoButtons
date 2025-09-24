@@ -15,10 +15,12 @@ public:
     // Setup and main loop
     bool setup(uint8_t buttonPin);
     void loop();
-
+    
+    // NEW: ActionExecutor integration
     void setActionExecutor(ActionExecutor* executor);
     ActionExecutor* getActionExecutor() const { return actionExecutor; }
     
+    // Action assignments (actions are stored but execution goes through ActionExecutor)
     bool setOnClickAction(AbstractAction* action);
     bool setOnDoubleClickAction(AbstractAction* action);
     bool setOnHoldAction(AbstractAction* action);
@@ -33,6 +35,8 @@ public:
     AbstractAction* getOnLongHoldAction() const { return onLongHold; }
     AbstractAction* getOnPushAction() const { return onPush; }
     AbstractAction* getOnPopAction() const { return onPop; }
+    
+    // Action execution control - now delegated to ActionExecutor
     bool hasRunningAction() const;                      // Check if any action is running via executor
     AbstractAction* getCurrentRunningAction() const;    // Get currently running action from executor
     void stopAllActions();                              // Stop all actions via executor
@@ -40,13 +44,6 @@ public:
     // Configuration
     void setTimingParameters(unsigned long debounce, unsigned long dcGap, 
                            unsigned long hold, unsigned long longHold);
-    
-    // NEW: Action execution behavior configuration
-    void setStopOthersOnClick(bool stopOthers) { stopOthersOnClick = stopOthers; }
-    void setStopOthersOnDoubleClick(bool stopOthers) { stopOthersOnDoubleClick = stopOthers; }
-    void setStopOthersOnHold(bool stopOthers) { stopOthersOnHold = stopOthers; }
-    void setStopOthersOnLongHold(bool stopOthers) { stopOthersOnLongHold = stopOthers; }
-    // Push/Pop never stop others by design (they're meant to run in parallel)
     
     // Status checking
     bool isInitialized() const { return initialized; }
@@ -79,13 +76,6 @@ private:
     
     // NEW: ActionExecutor integration
     ActionExecutor* actionExecutor;    // Delegate for action execution
-    
-    // NEW: Action execution behavior configuration
-    bool stopOthersOnClick;
-    bool stopOthersOnDoubleClick;
-    bool stopOthersOnHold;
-    bool stopOthersOnLongHold;
-    // Push/Pop are always parallel (don't stop others)
     
     // Hardware
     uint8_t buttonPin;

@@ -25,10 +25,18 @@ public:
     
     // State inquiry
     const char* getCurrentColorName() const;
+        ExecutionBehavior getExecutionBehavior() const override {
+        return executionBehavior;
+    }
+    
+    void setExecutionBehavior(ExecutionBehavior behavior) {
+        executionBehavior = behavior;
+    }
     
 private:
     RGLed* led;
     ActionState currentState;
+    ExecutionBehavior executionBehavior;   
     
     bool isCurrentlyRed() const;
     bool isCurrentlyGreen() const;
