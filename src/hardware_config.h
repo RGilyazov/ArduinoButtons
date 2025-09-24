@@ -7,7 +7,7 @@
 namespace HardwareConfig {
     constexpr uint8_t BUTTON_PIN = 3;
     constexpr uint8_t RGLED_RED_PIN = 9;     // Red channel of RG LED
-    constexpr uint8_t RGLED_GREEN_PIN = 7;   // Green channel of RG LED
+    constexpr uint8_t RGLED_GREEN_PIN = 6;   // Green channel of RG LED
     
     // System configuration
     constexpr unsigned long ERROR_RESET_INTERVAL_MS = 30000; // 30 seconds
