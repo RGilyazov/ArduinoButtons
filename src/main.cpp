@@ -27,7 +27,8 @@ RGLed statusLED;  // Red+Green status LED
 ActionExecutor executor;
 
 PrintAction* gitPushAction = nullptr;
-PrintAction* holdAction = nullptr;
+PrintAction* gitPullAction = nullptr;
+AbstractAction* holdAction = nullptr;
 AbstractAction* longHoldAction = nullptr;
 LEDRedAction* ledRedAction = nullptr;     // When button pushed
 LEDGreenAction* ledGreenAction = nullptr; // When button popped (released)
@@ -55,13 +56,13 @@ void setup() {
     static PrintAction gitPushActionObj(F("git push"));
     static PrintAction gitPullActionObj(F("git pull"));
 
-    // Random print action for long hold
+    // Random print action for hold
     static RandomPrintAction randomPrintActionObj;
     randomPrintActionObj.addMessage(F("test1"));
     randomPrintActionObj.addMessage(F("test2"));
     randomPrintActionObj.addMessage(F("test3"));
 
-    // Long hold combined action: LED yellow -> random message -> version info
+    // Long hold combined action: LED yellow -> version info
     static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) +
                                        ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" +
                                        String((__FlashStringHelper*)PROJECT_NAME));
@@ -72,16 +73,16 @@ void setup() {
     static LEDRedAction ledRedActionObj(&statusLED);      // Red when pushed
     static LEDGreenAction ledGreenActionObj(&statusLED);  // Green when released
     
-    // Build the combined action for long-hold (sequential: LED -> random print -> version)
+    // Build the combined action for long-hold (sequential: LED -> version)
     longHoldActionObj.addAction(&LEDYellowActionObj);
-    longHoldActionObj.addAction(&randomPrintActionObj);
     longHoldActionObj.addAction(&versionActionObj);
     longHoldActionObj.setSequentialMode(true);  // Execute one after another
     longHoldActionObj.setExecutionBehavior(ExecutionBehavior::IMMEDIATE_PARALLEL); // Informational, non-critical
     
     // Set global pointers to these objects
     gitPushAction = &gitPushActionObj;
-    holdAction = &gitPullActionObj;  // git pull on hold
+    gitPullAction = &gitPullActionObj;  // git pull on double-click
+    holdAction = &randomPrintActionObj;  // random message on hold
     longHoldAction = &longHoldActionObj;
     ledRedAction = &ledRedActionObj;
     ledGreenAction = &ledGreenActionObj;
@@ -141,6 +142,7 @@ bool initializeSystem() {
     }
     
     if (!button.setOnClickAction(gitPushAction) ||
+        !button.setOnDoubleClickAction(gitPullAction) ||
         !button.setOnHoldAction(holdAction) ||
         !button.setOnLongHoldAction(longHoldAction) ||
         !ledRedAction || !ledGreenAction) {
