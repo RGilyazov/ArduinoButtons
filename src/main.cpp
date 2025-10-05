@@ -26,7 +26,6 @@ RGLed statusLED;  // Red+Green status LED
 ActionExecutor executor;
 
 PrintAction* gitPushAction = nullptr;
-PrintAction* gitPullAction = nullptr;
 PrintAction* holdAction = nullptr;
 AbstractAction* longHoldAction = nullptr;
 LEDRedAction* ledRedAction = nullptr;     // When button pushed
@@ -53,8 +52,7 @@ void setup() {
     
     // Create action objects (F() macro can only be used inside functions)
     static PrintAction gitPushActionObj(F("git push"));
-    static PrintAction gitPullActionObj(F("git pull"));  
-    static PrintAction holdActionObj(F("NICE :)))"));
+    static PrintAction gitPullActionObj(F("git pull"));
     
     // Long hold combined action: print version info AND toggle LED color
     static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) + 
@@ -65,7 +63,7 @@ void setup() {
 
     //Create LED color actions for push/pop
     static LEDRedAction ledRedActionObj(&statusLED);      // Red when pushed
-    static LEDGreenAction ledGreenActionObj(&statusLED);  // Green when released
+    static LEDGreenAction ledGree3nActionObj(&statusLED);  // Green when released
     
     // Build the combined action for long-hold (version info + LED yellow)
     longHoldActionObj.addAction(&LEDYellowActionObj);
@@ -74,8 +72,7 @@ void setup() {
     
     // Set global pointers to these objects
     gitPushAction = &gitPushActionObj;
-    gitPullAction = &gitPullActionObj;
-    holdAction = &holdActionObj;
+    holdAction = &gitPullActionObj;  // git pull on hold
     longHoldAction = &longHoldActionObj;
     ledRedAction = &ledRedActionObj;
     ledGreenAction = &ledGreenActionObj;
@@ -135,7 +132,6 @@ bool initializeSystem() {
     }
     
     if (!button.setOnClickAction(gitPushAction) ||
-        !button.setOnDoubleClickAction(gitPullAction) ||
         !button.setOnHoldAction(holdAction) ||
         !button.setOnLongHoldAction(longHoldAction) ||
         !ledRedAction || !ledGreenAction) {
