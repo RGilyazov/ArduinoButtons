@@ -1,7 +1,7 @@
 #include "CombinedAction.h"
 
-CombinedAction::CombinedAction() 
-    : actionCount(0), stopOnFirstFailure(true) {
+CombinedAction::CombinedAction()
+    : actionCount(0), stopOnFirstFailure(true), sequentialMode(false), currentActionIndex(0) {
     for (uint8_t i = 0; i < MAX_ACTIONS; i++) {
         actions[i] = nullptr;
     }
@@ -48,13 +48,22 @@ void CombinedAction::start() {
         currentState = ActionState::FAILED;
         return;
     }
-    
-    for (uint8_t i = 0; i < actionCount; i++) {
-        if (actions[i] != nullptr) {
-            actions[i]->start();
+
+    if (sequentialMode) {
+        // Sequential: start only the first action
+        currentActionIndex = 0;
+        if (actions[0] != nullptr) {
+            actions[0]->start();
+        }
+    } else {
+        // Parallel: start all actions
+        for (uint8_t i = 0; i < actionCount; i++) {
+            if (actions[i] != nullptr) {
+                actions[i]->start();
+            }
         }
     }
-    
+
     currentState = ActionState::IN_PROGRESS;
 }
 
@@ -62,20 +71,53 @@ ActionState CombinedAction::update() {
     if (currentState != ActionState::IN_PROGRESS) {
         return currentState;
     }
-    
-    for (uint8_t i = 0; i < actionCount; i++) {
-        if (actions[i] != nullptr && actions[i]->isActive()) {
-            actions[i]->update();
+
+    if (sequentialMode) {
+        // Sequential mode: update only current action
+        if (currentActionIndex < actionCount && actions[currentActionIndex] != nullptr) {
+            AbstractAction* currentAction = actions[currentActionIndex];
+
+            if (currentAction->isActive()) {
+                currentAction->update();
+            }
+
+            // Check if current action is done
+            if (currentAction->isDone()) {
+                if (stopOnFirstFailure && currentAction->hasFailed()) {
+                    currentState = ActionState::FAILED;
+                    return currentState;
+                }
+
+                // Move to next action
+                currentActionIndex++;
+                if (currentActionIndex < actionCount) {
+                    // Start next action
+                    if (actions[currentActionIndex] != nullptr) {
+                        actions[currentActionIndex]->start();
+                    }
+                } else {
+                    // All actions completed
+                    currentState = ActionState::COMPLETED;
+                }
+            }
         }
+    } else {
+        // Parallel mode: update all actions
+        for (uint8_t i = 0; i < actionCount; i++) {
+            if (actions[i] != nullptr && actions[i]->isActive()) {
+                actions[i]->update();
+            }
+        }
+
+        if (stopOnFirstFailure && hasAnyFailedAction()) {
+            stopAllActions();
+            currentState = ActionState::FAILED;
+            return currentState;
+        }
+
+        updateState();
     }
-    
-    if (stopOnFirstFailure && hasAnyFailedAction()) {
-        stopAllActions();
-        currentState = ActionState::FAILED;
-        return currentState;
-    }
-    
-    updateState();
+
     return currentState;
 }
 

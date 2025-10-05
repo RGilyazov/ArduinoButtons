@@ -2,9 +2,10 @@
 #include <Keyboard.h>
 #include "classes/Button.h"
 #include "classes/actions/PrintAction.h"
+#include "classes/actions/RandomPrintAction.h"
 #include "classes/actions/LEDRedToGreenAction.h"
 #include "classes/actions/CombinedAction.h"
-#include "classes/actions/LEDColorActions.h"  
+#include "classes/actions/LEDColorActions.h"
 #include "classes/action_executor/ActionExecutor.h"
 #include "classes/leds/RGLed.h"
 #include "version.h"
@@ -26,7 +27,6 @@ RGLed statusLED;  // Red+Green status LED
 ActionExecutor executor;
 
 PrintAction* gitPushAction = nullptr;
-PrintAction* gitPullAction = nullptr;
 PrintAction* holdAction = nullptr;
 AbstractAction* longHoldAction = nullptr;
 LEDRedAction* ledRedAction = nullptr;     // When button pushed
@@ -47,18 +47,23 @@ constexpr uint8_t MAX_CONSECUTIVE_ERRORS = HardwareConfig::MAX_CONSECUTIVE_ERROR
 void setup() {
     // Initialize serial for debugging
     #ifdef DEBUG
-    Serial.begin(9600);
+    Serial.begin(HardwareConfig::SERIAL_BAUD_RATE);
     Serial.println(F("Arduino Button System Starting..."));
     #endif
     
     // Create action objects (F() macro can only be used inside functions)
     static PrintAction gitPushActionObj(F("git push"));
-    static PrintAction gitPullActionObj(F("git pull"));  
-    static PrintAction holdActionObj(F("NICE :)))"));
-    
-    // Long hold combined action: print version info AND toggle LED color
-    static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) + 
-                                       ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" + 
+    static PrintAction gitPullActionObj(F("git pull"));
+
+    // Random print action for long hold
+    static RandomPrintAction randomPrintActionObj;
+    randomPrintActionObj.addMessage(F("test1"));
+    randomPrintActionObj.addMessage(F("test2"));
+    randomPrintActionObj.addMessage(F("test3"));
+
+    // Long hold combined action: LED yellow -> random message -> version info
+    static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) +
+                                       ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" +
                                        String((__FlashStringHelper*)PROJECT_NAME));
     static LEDYellowAction LEDYellowActionObj(&statusLED);
     static CombinedAction longHoldActionObj;
@@ -67,15 +72,16 @@ void setup() {
     static LEDRedAction ledRedActionObj(&statusLED);      // Red when pushed
     static LEDGreenAction ledGreenActionObj(&statusLED);  // Green when released
     
-    // Build the combined action for long-hold (version info + LED yellow)
+    // Build the combined action for long-hold (sequential: LED -> random print -> version)
     longHoldActionObj.addAction(&LEDYellowActionObj);
+    longHoldActionObj.addAction(&randomPrintActionObj);
     longHoldActionObj.addAction(&versionActionObj);
+    longHoldActionObj.setSequentialMode(true);  // Execute one after another
     longHoldActionObj.setExecutionBehavior(ExecutionBehavior::IMMEDIATE_PARALLEL); // Informational, non-critical
     
     // Set global pointers to these objects
     gitPushAction = &gitPushActionObj;
-    gitPullAction = &gitPullActionObj;
-    holdAction = &holdActionObj;
+    holdAction = &gitPullActionObj;  // git pull on hold
     longHoldAction = &longHoldActionObj;
     ledRedAction = &ledRedActionObj;
     ledGreenAction = &ledGreenActionObj;
@@ -104,9 +110,9 @@ void setupStartupSequence() {
     // Create startup LED action
     static LEDRedToGreenAction startupLEDActionObj(&statusLED);
     startupLEDAction = &startupLEDActionObj;
-    
-    // Configure the action for 5 seconds
-    startupLEDAction->setDuration(5000);
+
+    // Configure the action for startup sequence
+    startupLEDAction->setDuration(HardwareConfig::STARTUP_LED_DURATION_MS);
     
     // Execute startup action - ActionExecutor handles the IMMEDIATE_PARALLEL behavior
     executor.executeAction(startupLEDAction);
@@ -119,7 +125,7 @@ void setupStartupSequence() {
 bool initializeSystem() {
     // Initialize keyboard
     Keyboard.begin();
-    delay(100); // Give keyboard time to initialize
+    delay(HardwareConfig::KEYBOARD_INIT_DELAY_MS); // Give keyboard time to initialize
     
     // Setup button
     if (!button.setup(HardwareConfig::BUTTON_PIN)) {
@@ -135,7 +141,6 @@ bool initializeSystem() {
     }
     
     if (!button.setOnClickAction(gitPushAction) ||
-        !button.setOnDoubleClickAction(gitPullAction) ||
         !button.setOnHoldAction(holdAction) ||
         !button.setOnLongHoldAction(longHoldAction) ||
         !ledRedAction || !ledGreenAction) {
@@ -174,14 +179,14 @@ void loop() {
 
 void monitorSystemHealth() {
     // Check if we need to reset error counter
-    if (consecutiveErrors > 0 && 
+    if (consecutiveErrors > 0 &&
         (millis() - lastErrorTime) > ERROR_RESET_INTERVAL) {
         consecutiveErrors = 0;
         #ifdef DEBUG
         Serial.println(F("Error counter reset"));
         #endif
     }
-    
+
     // Check for too many errors
     if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         #ifdef DEBUG
@@ -203,9 +208,9 @@ void handleError() {
     // Flash red LED to indicate error (3 quick blinks)
     for (int i = 0; i < 3; i++) {
         statusLED.setState(LEDState::red());
-        delay(100);
+        delay(HardwareConfig::ERROR_FLASH_DELAY_MS);
         statusLED.setState(LEDState::off());
-        delay(100);
+        delay(HardwareConfig::ERROR_FLASH_DELAY_MS);
     }
 }
 

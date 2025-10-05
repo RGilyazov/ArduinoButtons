@@ -18,10 +18,14 @@ public:
     }
     
     uint8_t getTypingDelay() const { return typingDelayMs; }
-    
+
     size_t getCurrentPosition() const { return currentPosition; }
     size_t getTotalLength() const;
     uint8_t getProgressPercent() const;
+
+    // Update message (for subclasses like RandomPrintAction)
+    void setMessage(const String& newMessage);
+    void setMessage(const __FlashStringHelper* newMessage);
 
 protected:
     void initializeProgress() override;
