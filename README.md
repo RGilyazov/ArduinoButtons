@@ -289,19 +289,82 @@ ArduinoButtons/
 - **PROGMEM**: Strings stored in flash memory (VERSION, PROJECT_NAME)
 - **Small Footprint**: Designed for ATmega32u4 (32KB flash, 2.5KB RAM)
 
-## Debugging
+## Building and Testing
 
-Enable debug output by defining `DEBUG` before compiling:
+### Build Environments
 
-```cpp
-#define DEBUG
+**Release Build** (`leonardo`):
+```bash
+pio run -e leonardo
+pio run -e leonardo --target upload
 ```
 
-Debug output includes:
+**Debug Build** (`leonardo-debug`):
+```bash
+# Build with debug output enabled
+pio run -e leonardo-debug --target upload
+
+# Monitor serial output
+pio device monitor -b 9600
+```
+
+### VS Code PlatformIO Extension
+
+**Build:**
+1. Open project in VS Code
+2. Click PlatformIO icon (alien head) in left sidebar
+3. Expand "PROJECT TASKS" → "leonardo" (or "leonardo-debug")
+4. Click "Build"
+
+**Upload:**
+1. Connect Arduino Pro Micro via USB
+2. PROJECT TASKS → "leonardo" → "Upload"
+
+**Monitor Serial:**
+1. PROJECT TASKS → "leonardo-debug" → "Monitor"
+2. Or bottom toolbar: click "Serial Monitor" icon
+
+**Run Tests:**
+1. PROJECT TASKS → "native" → "Advanced" → "Test"
+2. Or terminal: `pio test -e native`
+
+### Debug Output
+
+The `DEBUG` flag is automatically defined in the `leonardo-debug` environment. Debug output includes:
 - System initialization status
 - Button event triggers
 - Action execution flow
 - Error conditions and recovery attempts
+
+### Running Unit Tests
+
+Tests run natively (not on hardware) using mocked Arduino functions.
+
+**Prerequisites (Ubuntu/WSL):**
+```bash
+# Install GCC compiler
+sudo apt-get update
+sudo apt-get install build-essential -y
+
+# Install PlatformIO
+pip3 install platformio
+```
+
+**Run tests:**
+```bash
+# Run all native tests
+pio test -e native
+
+# Verbose output
+pio test -e native -vvv
+```
+
+**Test Coverage:**
+- 18 unit tests total
+- Button state machine: initialization, action validation, hold/long-hold detection, push/pop events
+- ActionExecutor: queue management, execution behaviors, buffer overflow, progress tracking
+
+**Note:** Single-click and double-click tests are disabled due to complex timing requirements with the button state machine debouncing logic. These events are validated through manual hardware testing.
 
 ## Known Limitations
 
