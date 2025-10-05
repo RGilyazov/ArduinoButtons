@@ -1,6 +1,6 @@
 #include "ActionExecutor.h"
 
-ActionExecutor::ActionExecutor() 
+ActionExecutor::ActionExecutor()
     : bufferHead(0), bufferTail(0), bufferSize(0), totalActionsAdded(0), sequentialMode(true) {
     // Initialize all buffer slots as empty
     for (uint8_t i = 0; i < MAX_ACTIONS; i++) {
@@ -57,21 +57,28 @@ bool ActionExecutor::queueAction(AbstractAction* action) {
 
 int8_t ActionExecutor::addAction(AbstractAction* action, bool queued) {
     if (isBufferFull()) {
+        #ifdef DEBUG
+        Serial.print(F("ActionExecutor: Buffer overflow! MAX_ACTIONS="));
+        Serial.print(MAX_ACTIONS);
+        Serial.print(F(", current size="));
+        Serial.println(bufferSize);
+        #endif
+
         return INVALID_SLOT; // Buffer is full
     }
-    
+
     // Add action to tail of circular buffer
     uint8_t index = bufferTail;
     actionBuffer[index].action = action;
     actionBuffer[index].isActive = true;
     actionBuffer[index].hasStarted = false;
     actionBuffer[index].isQueued = queued;
-    
+
     // Update circular buffer pointers
     bufferTail = (bufferTail + 1) % MAX_ACTIONS;
     bufferSize++;
     totalActionsAdded++;
-    
+
     return index;
 }
 

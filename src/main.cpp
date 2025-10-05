@@ -174,14 +174,14 @@ void loop() {
 
 void monitorSystemHealth() {
     // Check if we need to reset error counter
-    if (consecutiveErrors > 0 && 
+    if (consecutiveErrors > 0 &&
         (millis() - lastErrorTime) > ERROR_RESET_INTERVAL) {
         consecutiveErrors = 0;
         #ifdef DEBUG
         Serial.println(F("Error counter reset"));
         #endif
     }
-    
+
     // Check for too many errors
     if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         #ifdef DEBUG
