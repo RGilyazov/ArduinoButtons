@@ -24,6 +24,18 @@ bool PrintAction::validateMessage(const String& msg) const {
     return msg.length() > 0 && msg.length() <= MAX_MESSAGE_LENGTH;
 }
 
+void PrintAction::setMessage(const String& newMessage) {
+    message = newMessage;
+    isFlashString = false;
+    flashMessage = nullptr;
+}
+
+void PrintAction::setMessage(const __FlashStringHelper* newMessage) {
+    flashMessage = newMessage;
+    isFlashString = true;
+    message = "";
+}
+
 bool PrintAction::isKeyboardReady() const {
     return true;
 }

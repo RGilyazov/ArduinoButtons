@@ -63,7 +63,7 @@ void setup() {
 
     //Create LED color actions for push/pop
     static LEDRedAction ledRedActionObj(&statusLED);      // Red when pushed
-    static LEDGreenAction ledGree3nActionObj(&statusLED);  // Green when released
+    static LEDGreenAction ledGreenActionObj(&statusLED);  // Green when released
     
     // Build the combined action for long-hold (version info + LED yellow)
     longHoldActionObj.addAction(&LEDYellowActionObj);
