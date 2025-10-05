@@ -2,9 +2,10 @@
 #include <Keyboard.h>
 #include "classes/Button.h"
 #include "classes/actions/PrintAction.h"
+#include "classes/actions/RandomPrintAction.h"
 #include "classes/actions/LEDRedToGreenAction.h"
 #include "classes/actions/CombinedAction.h"
-#include "classes/actions/LEDColorActions.h"  
+#include "classes/actions/LEDColorActions.h"
 #include "classes/action_executor/ActionExecutor.h"
 #include "classes/leds/RGLed.h"
 #include "version.h"
@@ -53,10 +54,16 @@ void setup() {
     // Create action objects (F() macro can only be used inside functions)
     static PrintAction gitPushActionObj(F("git push"));
     static PrintAction gitPullActionObj(F("git pull"));
-    
-    // Long hold combined action: print version info AND toggle LED color
-    static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) + 
-                                       ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" + 
+
+    // Random print action for long hold
+    static RandomPrintAction randomPrintActionObj;
+    randomPrintActionObj.addMessage(F("test1"));
+    randomPrintActionObj.addMessage(F("test2"));
+    randomPrintActionObj.addMessage(F("test3"));
+
+    // Long hold combined action: LED yellow -> random message -> version info
+    static PrintAction versionActionObj("Version: " + String((__FlashStringHelper*)VERSION) +
+                                       ". Source code: https://github.com/RGilyazov/ArduinoButtons/tree/" +
                                        String((__FlashStringHelper*)PROJECT_NAME));
     static LEDYellowAction LEDYellowActionObj(&statusLED);
     static CombinedAction longHoldActionObj;
@@ -65,9 +72,11 @@ void setup() {
     static LEDRedAction ledRedActionObj(&statusLED);      // Red when pushed
     static LEDGreenAction ledGreenActionObj(&statusLED);  // Green when released
     
-    // Build the combined action for long-hold (version info + LED yellow)
+    // Build the combined action for long-hold (sequential: LED -> random print -> version)
     longHoldActionObj.addAction(&LEDYellowActionObj);
+    longHoldActionObj.addAction(&randomPrintActionObj);
     longHoldActionObj.addAction(&versionActionObj);
+    longHoldActionObj.setSequentialMode(true);  // Execute one after another
     longHoldActionObj.setExecutionBehavior(ExecutionBehavior::IMMEDIATE_PARALLEL); // Informational, non-critical
     
     // Set global pointers to these objects
