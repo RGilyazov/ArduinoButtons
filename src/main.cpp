@@ -47,7 +47,7 @@ constexpr uint8_t MAX_CONSECUTIVE_ERRORS = HardwareConfig::MAX_CONSECUTIVE_ERROR
 void setup() {
     // Initialize serial for debugging
     #ifdef DEBUG
-    Serial.begin(9600);
+    Serial.begin(HardwareConfig::SERIAL_BAUD_RATE);
     Serial.println(F("Arduino Button System Starting..."));
     #endif
     
@@ -104,9 +104,9 @@ void setupStartupSequence() {
     // Create startup LED action
     static LEDRedToGreenAction startupLEDActionObj(&statusLED);
     startupLEDAction = &startupLEDActionObj;
-    
-    // Configure the action for 5 seconds
-    startupLEDAction->setDuration(5000);
+
+    // Configure the action for startup sequence
+    startupLEDAction->setDuration(HardwareConfig::STARTUP_LED_DURATION_MS);
     
     // Execute startup action - ActionExecutor handles the IMMEDIATE_PARALLEL behavior
     executor.executeAction(startupLEDAction);
@@ -119,7 +119,7 @@ void setupStartupSequence() {
 bool initializeSystem() {
     // Initialize keyboard
     Keyboard.begin();
-    delay(100); // Give keyboard time to initialize
+    delay(HardwareConfig::KEYBOARD_INIT_DELAY_MS); // Give keyboard time to initialize
     
     // Setup button
     if (!button.setup(HardwareConfig::BUTTON_PIN)) {
@@ -203,9 +203,9 @@ void handleError() {
     // Flash red LED to indicate error (3 quick blinks)
     for (int i = 0; i < 3; i++) {
         statusLED.setState(LEDState::red());
-        delay(100);
+        delay(HardwareConfig::ERROR_FLASH_DELAY_MS);
         statusLED.setState(LEDState::off());
-        delay(100);
+        delay(HardwareConfig::ERROR_FLASH_DELAY_MS);
     }
 }
 
